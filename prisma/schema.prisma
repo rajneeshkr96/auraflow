@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+
+model User {
+  id           String        @id @default(uuid())
+  clerkId      String        @unique
+  email        String        @unique
+  firstname    String?
+  lastname     String?
+  createdAt    DateTime      @default(now())
+  subscription Subscription?
+  integrations Integration[]
+  automations  Automation[]
+}
+
+model Subscription {
+  id     String            @id @default(uuid())
+  userId String            @unique
+  user   User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan   SUBSCRIPTION_PLAN @default(FREE)
+}
+
+model Integration {
+  id          String           @id @default(uuid())
+  name        INTEGRATION_TYPE @default(INSTAGRAM)
+  createdAt   DateTime         @default(now())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token       String           // Instagram Access Token
+  instagramId String?          @unique
+}
+
+model Automation {
+  id        String   @id @default(uuid())
+  name      String   @default("Untitled")
+  createdAt DateTime @default(now())
+  active    Boolean  @default(false)
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  trigger   Trigger[]
+  listener  Listener?
+  posts     Post[]
+  keywords  Keyword[]
+}
+
+model Trigger {
+  id           String       @id @default(uuid())
+  type         TRIGGER_TYPE
+  automationId String
+  automation   Automation   @relation(fields: [automationId], references: [id], onDelete: Cascade)
+}
+
+model Listener {
+  id           String        @id @default(uuid())
+  automationId String        @unique
+  automation   Automation    @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  listener     LISTENER_TYPE @default(MESSAGE)
+  prompt       String?       // For Smart AI Agent
+  commentReply String?       // For Static Replies
+  dmReply      String?       // For Static Replies
+}
+
+model Keyword {
+  id           String     @id @default(uuid())
+  word         String
+  automationId String?
+  automation   Automation? @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@unique([automationId, word]) // Prevent duplicate keywords in one automation
+}
+
+model Post {
+  id           String     @id @default(uuid())
+  postid       String     // Instagram Post ID
+  caption      String?
+  media        String?
+  automationId String?
+  automation   Automation? @relation(fields: [automationId], references: [id], onDelete: Cascade)
+}
+
+enum SUBSCRIPTION_PLAN {
+  FREE
+  PRO
+}
+
+enum INTEGRATION_TYPE {
+  INSTAGRAM
+}
+
+enum TRIGGER_TYPE {
+  DM
+  COMMENT
+}
+
+enum LISTENER_TYPE {
+  SMART_AI
+  MESSAGE
+}
