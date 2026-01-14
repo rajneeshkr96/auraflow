@@ -1,3 +1,4 @@
+import Navbar from '@/components/marketing/Navbar'
 import React from 'react'
 
 type Props = {
@@ -6,12 +7,13 @@ type Props = {
 
 const Layout = ({ children }: Props) => {
   return (
-    <div className="flex flex-col w-full h-full">
-      {/* Header or Sidebar usually goes here */}
-      <div className="flex-1">
+   <>
+       <Navbar />
+       <main className="pt-20">
         {children}
-      </div>
-    </div>
+       </main>
+   </>
+
   )
 }
 
