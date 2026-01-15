@@ -8,8 +8,6 @@ import MultistreamSection from '@/components/marketing/MultistreamSection';
 import Pricing from '@/components/marketing/Pricing';
 import Testimonials from '@/components/marketing/Testimonials';
 import FAQ from '@/components/marketing/FAQ';
-import Footer from '@/components/marketing/Footer';
-
 
 
 export default function Home() {
@@ -36,7 +34,7 @@ export default function Home() {
         <FAQ />
       </main>
 
-      <Footer />
+     
     </div>
   );
 }

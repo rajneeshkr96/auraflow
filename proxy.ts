@@ -5,7 +5,18 @@ const isPublicRoute = createRouteMatcher([
   '/', 
   '/api/webhooks(.*)', // Important: Webhooks must be public for Instagram to hit them
   '/sign-in(.*)', 
-  '/sign-up(.*)'
+  '/sign-up(.*)',
+  '/features',
+  '/pricing',
+  '/privacy',
+  '/terms',
+  '/contact',
+  '/about',
+  '/blog',
+  '/blog/(.*)',
+  '/terms-of-service',
+  'privacy-policy'
+
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

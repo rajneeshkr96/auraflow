@@ -1,3 +1,4 @@
+import Footer from '@/components/marketing/Footer'
 import Navbar from '@/components/marketing/Navbar'
 import React from 'react'
 
@@ -12,6 +13,7 @@ const Layout = ({ children }: Props) => {
        <main className="pt-20">
         {children}
        </main>
+        <Footer />
    </>
 
   )

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutGrid } from 'lucide-react';
 import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
+import Link from 'next/link';
 
 const Navbar = () => {
   // We handle scroll state locally here since this is a UI specific interaction
@@ -32,10 +33,10 @@ const Navbar = () => {
 
         {/* Navigation Links - Hidden on mobile */}
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-          <a href="#features" className="hover:text-indigo-600 transition-colors">Features</a>
-          <a href="#pricing" className="hover:text-indigo-600 transition-colors">Pricing</a>
-          <a href="#reviews" className="hover:text-indigo-600 transition-colors">Reviews</a>
-          <a href="#" className="hover:text-indigo-600 transition-colors">FAQ</a>
+          <Link href="/features" className="hover:text-indigo-600 transition-colors">Features</Link>
+          <Link href="/pricing" className="hover:text-indigo-600 transition-colors">Pricing</Link>
+          <Link href="/about" className="hover:text-indigo-600 transition-colors">About</Link>
+          <Link href="/contact" className="hover:text-indigo-600 transition-colors">Contact</Link>
         </div>
 
         {/* Auth Section */}
