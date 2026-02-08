@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useEffect, useState } from "react";
 import Hero from '@/components/marketing/Hero';
@@ -8,13 +8,14 @@ import MultistreamSection from '@/components/marketing/MultistreamSection';
 import Pricing from '@/components/marketing/Pricing';
 import Testimonials from '@/components/marketing/Testimonials';
 import FAQ from '@/components/marketing/FAQ';
+import { FadeIn } from "@/components/ui/AnimationWrapper";
 
 
 export default function Home() {
 
 
 
- return (
+  return (
     <div className="min-h-screen relative bg-white text-slate-900">
       {/* Decorative floating elements */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
@@ -23,18 +24,37 @@ export default function Home() {
         <div className="absolute bottom-[20%] left-[15%] w-32 h-32 bg-pink-500/5 rounded-full blur-3xl" />
       </div>
 
-      
+
       <main>
         <Hero />
-        <StatsSection />
-        <FeatureGrid />
-        <MultistreamSection />
-        <Pricing />
-        <Testimonials />
-        <FAQ />
+
+        <FadeIn delay={0.2}>
+          <StatsSection />
+        </FadeIn>
+
+        <FadeIn>
+          <FeatureGrid />
+        </FadeIn>
+
+        <FadeIn>
+          <MultistreamSection />
+        </FadeIn>
+
+        <FadeIn>
+          <Pricing />
+        </FadeIn>
+
+        <FadeIn>
+          <Testimonials />
+        </FadeIn>
+
+        <FadeIn>
+          <FAQ />
+        </FadeIn>
       </main>
 
-     
+
     </div>
   );
 }
+

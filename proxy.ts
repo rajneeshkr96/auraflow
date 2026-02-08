@@ -2,10 +2,13 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Define routes that do NOT require authentication
 const isPublicRoute = createRouteMatcher([
-  '/', 
+  '/',
+  '/api/webhooks/instagram',
+  '/api/integrations(.*)',
   '/api/webhooks(.*)', // Important: Webhooks must be public for Instagram to hit them
-  '/sign-in(.*)', 
+  '/sign-in(.*)',
   '/sign-up(.*)',
+  '/sso-callback(.*)', // OAuth callback route
   '/features',
   '/pricing',
   '/privacy',
@@ -15,13 +18,14 @@ const isPublicRoute = createRouteMatcher([
   '/blog',
   '/blog/(.*)',
   '/terms-of-service',
-  'privacy-policy'
-
+  '/privacy-policy',
+  '/debug',
+  '/api/public(.*)'
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-     await auth.protect();
+    await auth.protect();
   }
 });
 

@@ -1,31 +1,27 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// prisma/schema.prisma
 generator client {
-  provider = "prisma-client"
-  output   = "../app/generated/prisma"
+  provider      = "prisma-client"
+  output        = "../app/generated/prisma"
+  compilerBuild = "fast" // New in 7.3.0: options are "fast" or "small"
 }
 
 datasource db {
   provider = "postgresql"
+  // Note: No 'url' field here; it's handled in prisma.config.ts
 }
 
-
-
-
 model User {
-  id           String        @id @default(uuid())
-  clerkId      String        @unique
-  email        String        @unique
+  id           String         @id @default(uuid())
+  clerkId      String         @unique
+  email        String         @unique
   firstname    String?
   lastname     String?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime       @default(now())
   subscription Subscription?
   integrations Integration[]
   automations  Automation[]
+  agents       Agent[]
+  conversations Conversation[]
 }
 
 model Subscription {
@@ -41,8 +37,10 @@ model Integration {
   createdAt   DateTime         @default(now())
   userId      String
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token       String           // Instagram Access Token
-  instagramId String?          @unique
+  token       String           // Page Access Token
+  instagramId String?          @unique // Instagram Business Account ID
+  pageId      String?          // Facebook Page ID (needed for messaging)
+  expiresAt   DateTime?
 }
 
 model Automation {
@@ -50,7 +48,7 @@ model Automation {
   name      String   @default("Untitled")
   createdAt DateTime @default(now())
   active    Boolean  @default(false)
-  
+
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -58,6 +56,19 @@ model Automation {
   listener  Listener?
   posts     Post[]
   keywords  Keyword[]
+}
+
+model Agent {
+  id             String    @id @default(uuid())
+  name           String
+  type           AGENT_TYPE @default(REPLY)
+  prompt         String
+  createdAt      DateTime  @default(now())
+  
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  listeners      Listener[]
 }
 
 model Trigger {
@@ -71,28 +82,65 @@ model Listener {
   id           String        @id @default(uuid())
   automationId String        @unique
   automation   Automation    @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  
   listener     LISTENER_TYPE @default(MESSAGE)
-  prompt       String?       // For Smart AI Agent
-  commentReply String?       // For Static Replies
-  dmReply      String?       // For Static Replies
+  
+  // For Static Replies (classic)
+  commentReply String?       
+  dmReply      String?       
+
+  // For Smart AI Agent
+  agentId      String?
+  agent        Agent?        @relation(fields: [agentId], references: [id])
 }
 
 model Keyword {
-  id           String     @id @default(uuid())
+  id           String      @id @default(uuid())
   word         String
   automationId String?
   automation   Automation? @relation(fields: [automationId], references: [id], onDelete: Cascade)
 
-  @@unique([automationId, word]) // Prevent duplicate keywords in one automation
+  @@unique([automationId, word])
 }
 
 model Post {
-  id           String     @id @default(uuid())
-  postid       String     // Instagram Post ID
+  id           String      @id @default(uuid())
+  postid       String      // Instagram Post ID
   caption      String?
   media        String?
+  mediaType    String?     // IMAGE, VIDEO, CAROUSEL_ALBUM
   automationId String?
   automation   Automation? @relation(fields: [automationId], references: [id], onDelete: Cascade)
+}
+
+// Analytics & History
+model Conversation {
+  id           String    @id @default(uuid())
+  createdAt    DateTime  @default(now())
+  
+  // The Instagram User we are talking to
+  recipientId  String    
+  
+  // The SaaS User who owns this conversation (via Integration usually, but linked to User for ease)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  messages     Message[]
+  
+  @@unique([userId, recipientId]) // One conversation per recipient per SaaS user
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  role           MESSAGE_ROLE // USER (them) or ASSISTANT (us)
+  content        String
+  createdAt      DateTime     @default(now())
+  
+  inputTokens    Int?         // for billing/stats
+  outputTokens   Int?         // for billing/stats
 }
 
 enum SUBSCRIPTION_PLAN {
@@ -112,4 +160,16 @@ enum TRIGGER_TYPE {
 enum LISTENER_TYPE {
   SMART_AI
   MESSAGE
+}
+
+enum AGENT_TYPE {
+  REPLY
+  CLOSER
+  CONTENT
+}
+
+enum MESSAGE_ROLE {
+  USER
+  ASSISTANT
+  SYSTEM
 }

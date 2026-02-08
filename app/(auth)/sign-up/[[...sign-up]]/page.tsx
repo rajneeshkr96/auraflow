@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSignUp } from '@clerk/nextjs';
-import { Mail, Lock, User, AtSign, ArrowRight, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
 
@@ -14,10 +14,9 @@ const SignupPage: React.FC = () => {
 
   // Form State
   const [firstName, setFirstName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+
   // Verification State
   const [pendingVerification, setPendingVerification] = useState(false);
   const [code, setCode] = useState('');
@@ -35,10 +34,9 @@ const SignupPage: React.FC = () => {
     setError('');
 
     try {
+      // Try with just email and password first
       await signUp.create({
-        firstName,
-        username, 
-        emailAddress: email,
+        emailAddress: email.trim(),
         password,
       });
 
@@ -48,8 +46,17 @@ const SignupPage: React.FC = () => {
       // Switch UI to verification mode
       setPendingVerification(true);
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.longMessage || "Something went wrong during sign up.");
+      console.error('Sign-up error:', err);
+
+      // Extract error message
+      let errorMessage = "Something went wrong during sign up.";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].longMessage || err.errors[0].message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -73,10 +80,19 @@ const SignupPage: React.FC = () => {
         router.push('/dashboard'); // Redirect to dashboard
       } else {
         console.log(JSON.stringify(completeSignUp, null, 2));
+        setError('Verification incomplete. Please try again.');
       }
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.longMessage || "Invalid verification code.");
+      console.error('Verification error:', err);
+
+      let errorMessage = "Invalid verification code.";
+      if (err.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].longMessage || err.errors[0].message;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +116,7 @@ const SignupPage: React.FC = () => {
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Verification Code</label>
-            <input 
+            <input
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="123456"
@@ -108,15 +124,15 @@ const SignupPage: React.FC = () => {
             />
           </div>
 
-          <button 
+          <button
             disabled={isLoading}
             className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2"
           >
             {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Verify Account'}
           </button>
-          
-          <button 
-            type="button" 
+
+          <button
+            type="button"
             onClick={() => setPendingVerification(false)}
             className="w-full text-sm font-bold text-slate-400 hover:text-slate-600"
           >
@@ -136,7 +152,7 @@ const SignupPage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+
         {/* Error Display */}
         {error && (
           <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm font-medium flex items-center gap-2">
@@ -144,37 +160,19 @@ const SignupPage: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
-          {/* First Name */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
-            <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                required
-                type="text" 
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Alex" 
-                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Handle/Username */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Handle</label>
-            <div className="relative">
-              <AtSign className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                required
-                type="text" 
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="username" 
-                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
-              />
-            </div>
+        {/* First Name */}
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+          <div className="relative">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              required
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              placeholder="Alex"
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
+            />
           </div>
         </div>
 
@@ -183,12 +181,12 @@ const SignupPage: React.FC = () => {
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
+            <input
               required
-              type="email" 
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="alex@company.com" 
+              placeholder="alex@company.com"
               className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
             />
           </div>
@@ -199,13 +197,13 @@ const SignupPage: React.FC = () => {
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Password</label>
           <div className="relative">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
+            <input
               required
               minLength={8}
-              type="password" 
+              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a strong password" 
+              placeholder="Create a strong password"
               className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all"
             />
           </div>
@@ -217,7 +215,7 @@ const SignupPage: React.FC = () => {
           </p>
         </div>
 
-        <button 
+        <button
           disabled={isLoading || !isLoaded}
           className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-2 group"
         >
@@ -234,7 +232,7 @@ const SignupPage: React.FC = () => {
 
       <p className="mt-10 text-center text-sm font-medium text-slate-500">
         Already have an account? {' '}
-        <Link href="/login-in" className="text-indigo-600 font-bold hover:underline">Log in here</Link>
+        <Link href="/sign-in" className="text-indigo-600 font-bold hover:underline">Log in here</Link>
       </p>
 
       {/* Trust bar */}
