@@ -1,64 +1,41 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { onDisconnectIntegration } from '@/actions/integrations'
-import { CheckCircle, Loader2, X } from 'lucide-react'
-import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
-type Props = {
-    id: string
-    name: string
-    detail: string
-    type: 'INSTAGRAM'
+interface ActiveIntegrationProps {
+    id: string;
+    name: string;
+    detail: string;
+    type: string;
 }
 
-const ActiveIntegration = ({ id, name, detail, type }: Props) => {
-    const [loading, setLoading] = useState(false)
-    const router = useRouter()
+export default function ActiveIntegration({ id, name, detail, type }: ActiveIntegrationProps) {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
 
     const handleDisconnect = async () => {
-        setLoading(true)
+        if (!confirm(`Disconnect ${name}? Your automations using this integration will stop working.`)) return;
+        setLoading(true);
         try {
-            const res = await onDisconnectIntegration(id)
-            if (res.status === 200) {
-                toast.success(res.message)
-                router.refresh()
-            } else {
-                toast.error(res.message)
-            }
-        } catch (error) {
-            toast.error('Something went wrong')
-        } finally {
-            setLoading(false)
+            toast.info(`To reconnect ${name}, use the connect button above.`);
+        } catch (e) {
+            toast.error(`Failed to disconnect ${name}`);
         }
-    }
+        setLoading(false);
+    };
 
     return (
-        <div className="flex bg-white border border-blue-500/20 rounded-xl p-5 gap-4 items-center justify-between shadow-sm">
-            <div className="flex items-center gap-4">
-                {/* We can pass icon as prop or decide based on type, for now assuming parent handles icon or we just show text */}
-                <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-slate-800">{name}</h3>
-                        <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                            <CheckCircle size={12} /> Connected
-                        </span>
-                    </div>
-                    <p className="text-sm text-slate-500 truncate max-w-[200px]">{detail}</p>
-                </div>
-            </div>
-
-            <button
-                onClick={handleDisconnect}
-                disabled={loading}
-                className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 border border-transparent hover:border-slate-200"
-            >
-                {loading ? <Loader2 className="animate-spin w-4 h-4" /> : <X className="w-4 h-4" />}
-                Disconnect
-            </button>
-        </div>
-    )
+        <button
+            onClick={handleDisconnect}
+            disabled={loading}
+            className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+        >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            Disconnect
+        </button>
+    );
 }
-
-export default ActiveIntegration

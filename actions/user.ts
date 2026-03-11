@@ -1,80 +1,30 @@
 'use server'
 
-import { currentUser } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { client } from '@/lib/db'
+import axios from 'axios'
+import { cookies } from 'next/headers'
+
+const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
 
 export const onAuthenticatedUser = async () => {
-    const user = await currentUser()
-    if (!user) redirect('/sign-in')
+    const cookieStore = await cookies()
+    const authCookie = cookieStore.get('Authentication')
 
-    const userExist = await client.user.findUnique({
-        where: {
-            clerkId: user.id,
-        },
-        include: {
-            subscription: true,
-            integrations: {
-                select: {
-                    id: true,
-                    token: true,
-                    expiresAt: true,
-                    name: true,
-                },
-            },
-        },
-    })
+    if (!authCookie) redirect('/sign-in')
 
-    if (userExist) {
-        if (userExist.firstname && userExist.lastname) return userExist
+    try {
+        const response = await axios.get(`${AURA_API}/user/profile`, {
+            headers: {
+                Cookie: `Authentication=${authCookie.value}`
+            }
+        });
 
-        const completion = await client.user.update({
-            where: {
-                clerkId: user.id,
-            },
-            data: {
-                firstname: user.firstName,
-                lastname: user.lastName,
-            },
-            include: {
-                subscription: true,
-                integrations: {
-                    select: {
-                        id: true,
-                        token: true,
-                        expiresAt: true,
-                        name: true,
-                    },
-                },
-            },
-        })
+        const userExist = response.data;
+        if (userExist) return userExist;
 
-        return completion
+        return null;
+    } catch (error) {
+        console.error('Core API User Fetch Error:', error);
+        return null;
     }
-
-    const newUser = await client.user.create({
-        data: {
-            clerkId: user.id,
-            email: user.emailAddresses[0].emailAddress,
-            firstname: user.firstName,
-            lastname: user.lastName,
-            subscription: {
-                create: {},
-            },
-        },
-        include: {
-            subscription: true,
-            integrations: {
-                select: {
-                    id: true,
-                    token: true,
-                    expiresAt: true,
-                    name: true,
-                },
-            },
-        },
-    })
-
-    if (newUser) return newUser
-    return null
 }

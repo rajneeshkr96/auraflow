@@ -1,10 +1,14 @@
 "use client";
 
-import { UserButton } from '@clerk/nextjs';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 export default function DashboardNav() {
+    const handleLogout = () => {
+        // Redirect to central auth logout
+        window.location.href = `http://localhost:3003/login?redirect=${encodeURIComponent(window.location.origin)}`;
+    };
+
     return (
         <nav className="border-b border-slate-200 bg-white sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-6 py-4">
@@ -19,14 +23,13 @@ export default function DashboardNav() {
 
                     {/* User Menu */}
                     <div className="flex items-center gap-4">
-                        <UserButton
-                            afterSignOutUrl="/"
-                            appearance={{
-                                elements: {
-                                    avatarBox: "w-9 h-9"
-                                }
-                            }}
-                        />
+                        <button
+                            onClick={handleLogout}
+                            className="p-2 text-slate-500 hover:text-slate-900 transition-colors"
+                            title="Log Out"
+                        >
+                            <LogOut className="w-5 h-5" />
+                        </button>
                     </div>
                 </div>
             </div>

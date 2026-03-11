@@ -1,90 +1,91 @@
-'use client'
+"use client";
 
-import { getInstagramPosts } from '@/actions/instagram'
-import { Loader2, CheckCircle } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import clsx from 'clsx'
+import { useState, useEffect } from 'react';
+import { getInstagramPosts } from '@/actions/instagram';
+import { ImageIcon, CheckCircle2, Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
-type Post = {
-    id: string
-    caption: string
-    media_url: string
-    media_type: 'IMAGE' | 'VIDEO' | 'CAROUSEL_ALBUM'
-    timestamp: string
-    thumbnail_url?: string
-    permalink: string
+interface Post {
+    postid: string;
+    caption?: string;
+    media?: string;
+    mediaType?: string;
 }
 
-type Props = {
-    onSelect: ({ postid, media, mediaType, caption }: { postid: string, media: string, mediaType: string, caption: string }) => void
-    posts?: {
-        postid: string
-        media?: string
-        mediaType?: string
-        caption?: string
-    }[]
+interface Props {
+    onSelect: (post: Post) => void;
+    posts: Post[];
 }
 
-const PostSelector = ({ onSelect, posts: selectedPosts = [] }: Props) => {
-    const [loading, setLoading] = useState(false)
-    const [posts, setPosts] = useState<Post[]>([])
+export default function PostSelector({ onSelect, posts = [] }: Props) {
+    const [availablePosts, setAvailablePosts] = useState<Post[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [fetched, setFetched] = useState(false);
 
-    useEffect(() => {
-        const fetchPosts = async () => {
-            setLoading(true)
-            const res = await getInstagramPosts()
-            if (res.status === 200) {
-                setPosts(res.data)
+    const fetchPosts = async () => {
+        if (fetched) return;
+        setLoading(true);
+        try {
+            const result = await getInstagramPosts();
+            if (result.status === 200 && Array.isArray(result.data)) {
+                setAvailablePosts(result.data.slice(0, 12));
             }
-            setLoading(false)
+        } catch (e) {
+            console.error('Error fetching posts:', e);
         }
-        fetchPosts()
-    }, [])
+        setLoading(false);
+        setFetched(true);
+    };
+
+    useEffect(() => { fetchPosts(); }, []);
+
+    const isSelected = (postid: string) => posts.some(p => p.postid === postid);
 
     if (loading) {
-        return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-600" /></div>
+        return (
+            <div className="flex items-center justify-center py-6 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                <span className="text-sm">Loading posts...</span>
+            </div>
+        );
     }
 
-    if (posts.length === 0) {
-        return <div className="text-center p-10 text-slate-500">No posts found or Instagram integration missing.</div>
+    if (availablePosts.length === 0) {
+        return (
+            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-400">
+                <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                <p className="text-xs">No posts found. Connect Instagram to select specific posts.</p>
+            </div>
+        );
     }
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-[400px] overflow-y-auto p-2 border rounded-xl">
-            {posts.map((post) => {
-                const isSelected = selectedPosts.some(p => p.postid === post.id)
-                const mediaSrc = post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url
-
+        <div className="grid grid-cols-3 gap-2">
+            {availablePosts.map((post) => {
+                const selected = isSelected(post.postid);
                 return (
-                    <div
-                        key={post.id}
-                        onClick={() => onSelect({
-                            postid: post.id,
-                            media: post.media_url,
-                            mediaType: post.media_type,
-                            caption: post.caption
-                        })}
-                        className={clsx(
-                            "relative aspect-square bg-slate-100 rounded-lg cursor-pointer overflow-hidden border-2 transition-all group",
-                            isSelected ? "border-blue-600 ring-2 ring-blue-600 ring-offset-2" : "border-transparent hover:border-blue-300"
-                        )}
+                    <button
+                        key={post.postid}
+                        onClick={() => onSelect(post)}
+                        className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                            selected ? 'border-violet-600' : 'border-transparent hover:border-slate-300'
+                        }`}
                     >
-                        {mediaSrc ? (
-                            <img src={mediaSrc} alt="Post" className="w-full h-full object-cover" />
+                        {post.media ? (
+                            <Image src={post.media} alt={post.caption || 'Post'} fill className="object-cover" />
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">No Image</div>
-                        )}
-
-                        {isSelected && (
-                            <div className="absolute inset-0 bg-blue-600/20 flex items-center justify-center">
-                                <CheckCircle className="text-white w-8 h-8 drop-shadow-md" />
+                            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                                <ImageIcon className="w-5 h-5 text-slate-300" />
                             </div>
                         )}
-                    </div>
-                )
+                        {selected && (
+                            <div className="absolute inset-0 bg-violet-600/20 flex items-center justify-center">
+                                <CheckCircle2 className="w-6 h-6 text-white drop-shadow-lg" />
+                            </div>
+                        )}
+                    </button>
+                );
             })}
         </div>
-    )
+    );
 }
-
-export default PostSelector

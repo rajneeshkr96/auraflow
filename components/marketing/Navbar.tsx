@@ -2,26 +2,38 @@
 
 import React, { useState, useEffect } from 'react';
 import { LayoutGrid } from 'lucide-react';
-import { SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import Link from 'next/link';
 
 const Navbar = () => {
   // We handle scroll state locally here since this is a UI specific interaction
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
 
+    // Very naive check for client side - if we have the Authentication cookie
+    // Since it's probably HttpOnly, this check might fail. We can also check localStorage,
+    // or rely on a generic "Get Started / Dashboard" button that redirects.
+    // For now we'll just check if there's any cookie, but the redirect logic handles protection anyway.
+    setIsAuthenticated(document.cookie.includes('Authentication='));
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+      const getAuthUrl = (path: string) => {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3002';
+        if (!currentUrl) return `${baseUrl}${path}`;
+        return `${baseUrl}${path}?redirect=${encodeURIComponent(currentUrl)}`;
+    };
+
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-100 py-3' : 'bg-transparent py-5'
-    }`}>
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-100 py-3' : 'bg-transparent py-5'
+      }`}>
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Logo Section */}
         <div className="flex items-center gap-2">
@@ -41,34 +53,21 @@ const Navbar = () => {
 
         {/* Auth Section */}
         <div className="flex items-center gap-4">
-          
-          {/* State: When User is Logged OUT */}
-          <SignedOut>
-            {/* Removed mode="modal" so it redirects to the login page */}
-            <SignInButton>
-              <button className="text-sm font-semibold text-slate-600 hover:text-slate-900 cursor-pointer">
+
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-full transition-all active:scale-95">
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <a href={getAuthUrl("/login")} className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
                 Login
-              </button>
-            </SignInButton>
-
-            {/* Removed mode="modal" so it redirects to the signup page */}
-            <SignUpButton>
-              <button className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-full transition-all active:scale-95 cursor-pointer">
+              </a>
+              <a href={getAuthUrl("/signup")} className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-full transition-all active:scale-95">
                 Get Started
-              </button>
-            </SignUpButton>
-          </SignedOut>
-
-          {/* State: When User is Logged IN */}
-          <SignedIn>
-            <UserButton 
-              appearance={{
-                elements: {
-                  avatarBox: "w-10 h-10"
-                }
-              }}
-            />
-          </SignedIn>
+              </a>
+            </>
+          )}
 
         </div>
       </div>

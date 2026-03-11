@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { client } from '@/lib/db'
 import axios from 'axios'
+import { cookies } from 'next/headers'
 
 export async function GET(req: Request) {
     // Need to handle the callback
@@ -107,59 +107,33 @@ export async function GET(req: Request) {
             }
         }
 
-        const clerkId = state
-
-        // 1. Find the user first
-        const user = await client.user.findUnique({
-            where: { clerkId }
-        })
-
-        if (user) {
-            // 2. Delete existing INSTAGRAM integrations to prevent duplicates/stale IDs
-            await client.integration.deleteMany({
-                where: {
-                    userId: user.id,
-                    name: 'INSTAGRAM'
-                }
-            })
-
-            // 3. Create fresh integration
-            await client.integration.create({
-                data: {
-                    userId: user.id,
-                    token: pageAccessToken || accessToken, // Store Page Access Token for Instagram API use
-                    instagramId: instagramId,
-                    pageId: pageId, // Store Page ID for messaging
-                    name: 'INSTAGRAM'
-                }
-            })
+        // 1. Get Authentication Cookie from request
+        const cookieStore = await cookies();
+        const authCookie = cookieStore.get('Authentication');
+        
+        let headers: Record<string, string> = {};
+        if (authCookie) {
+            headers['Cookie'] = `Authentication=${authCookie.value}`;
         } else {
-            // Fallback for user creation
-            await client.user.create({
-                data: {
-                    clerkId: clerkId,
-                    email: 'placeholder@example.com',
-                    firstname: 'Unknown',
-                    lastname: 'Unknown',
-                    subscription: {
-                        create: {}
-                    },
-                    integrations: {
-                        create: {
-                            token: pageAccessToken || accessToken,
-                            instagramId: instagramId,
-                            pageId: pageId,
-                            name: 'INSTAGRAM'
-                        }
-                    }
-                }
-            })
+            // Also try fallback to the request cookie header if needed, but normally use explicit
+            const cookieHeader = req.headers.get('cookie');
+            if (cookieHeader) headers['Cookie'] = cookieHeader;
         }
+
+        const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
+
+        // 2. Save Integration in Core API
+        await axios.post(`${AURA_API}/integrations`, {
+            token: pageAccessToken || accessToken,
+            instagramId: instagramId,
+            pageId: pageId,
+            name: 'INSTAGRAM'
+        }, { headers });
 
         return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard`)
 
-    } catch (error) {
-        console.error('OAuth Error', error)
+    } catch (error: any) {
+        console.error('OAuth Error', error?.response?.data || error.message)
         return NextResponse.json({ error: 'OAuth Failed' }, { status: 500 })
     }
 }

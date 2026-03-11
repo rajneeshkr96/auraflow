@@ -1,26 +1,34 @@
-import { client } from '@/lib/db'
-import { currentUser } from '@clerk/nextjs/server'
+// Fix for /automations/new — replaced broken Clerk auth() with onAuthenticatedUser()
+import { onAuthenticatedUser } from '@/actions/user'
 import { redirect } from 'next/navigation'
+import axios from 'axios'
+import { cookies } from 'next/headers'
 
 export default async function CreateAutomation() {
-    const user = await currentUser()
-    if (!user) return redirect('/sign-in')
+    const user = await onAuthenticatedUser()
+    if (!user || !user.id) return redirect('/sign-in')
 
-    // Check if user exists in DB
-    const dbUser = await client.user.findUnique({ where: { clerkId: user.id } })
+    const cookieStore = await cookies()
+    const authToken = cookieStore.get('Authentication')?.value
+    const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005'
 
-    // If not found, maybe they skipped onboarding or webhook failed. 
-    // Ideally redirect to Integrations to connect.
-    if (!dbUser) return redirect('/integrations')
-
-    // Create Automation
-    const automation = await client.automation.create({
-        data: {
+    let automationId = null
+    try {
+        const response = await axios.post(`${AURA_API}/automations`, {
             name: 'Untitled Automation',
-            userId: dbUser.id,
             active: false
-        }
-    })
+        }, {
+            headers: { Cookie: `Authentication=${authToken}` }
+        })
+        automationId = response.data.id
+    } catch (e) {
+        console.error("Failed to create automation", e)
+        return redirect('/automations')
+    }
 
-    redirect(`/automations/${automation.id}`)
+    if (automationId) {
+        redirect(`/automations/${automationId}`)
+    } else {
+        redirect('/automations')
+    }
 }

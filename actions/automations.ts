@@ -1,7 +1,66 @@
 "use server";
 
-import { client } from "@/lib/db";
+import axios from "axios";
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+
+const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
+
+async function getAuthHeader() {
+    const cookieStore = await cookies();
+    const authCookie = cookieStore.get('Authentication');
+    if (!authCookie) return null;
+    return { Cookie: `Authentication=${authCookie.value}` };
+}
+
+export async function getAutomations() {
+    try {
+        const headers = await getAuthHeader();
+        if (!headers) return [];
+        const response = await axios.get(`${AURA_API}/automations`, { headers });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching automations:', error);
+        return [];
+    }
+}
+
+export async function getAutomationStats() {
+    try {
+        const headers = await getAuthHeader();
+        if (!headers) return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
+
+        // Try fetching from stats endpoint, fallback to deriving from automations
+        try {
+            const response = await axios.get(`${AURA_API}/automations/stats`, { headers });
+            return response.data;
+        } catch {
+            // Fallback: compute basic stats from automations list
+            const automations = await getAutomations();
+            return {
+                totalAutomations: automations.length,
+                activeAutomations: automations.filter((a: any) => a.active).length,
+                totalTriggers: automations.reduce((sum: number, a: any) => sum + (a.trigger?.length || 0), 0),
+                totalReplies: 0,
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
+    }
+}
+
+export async function getAutomationById(id: string) {
+    try {
+        const headers = await getAuthHeader();
+        if (!headers) return null;
+        const response = await axios.get(`${AURA_API}/automations/${id}`, { headers });
+        return response.data;
+    } catch (error) {
+        console.error(`Error fetching automation ${id}:`, error);
+        return null;
+    }
+}
 
 export async function updateAutomation(id: string, data: {
     name?: string,
@@ -10,96 +69,36 @@ export async function updateAutomation(id: string, data: {
     keywords?: string[],
     listenerType?: 'MESSAGE' | 'SMART_AI',
     reply?: string,
+    dmReply?: string,
     prompt?: string,
-    posts?: {
-        postid: string,
-        caption?: string,
-        media?: string,
-        mediaType?: string
-    }[]
+    posts?: { postid: string, caption?: string, media?: string, mediaType?: string }[]
 }) {
     try {
-        // 1. Update basic info
-        await client.automation.update({
-            where: { id },
-            data: {
-                name: data.name,
-                active: data.active
-            }
-        });
-
-        // 2. Update Triggers
-        if (data.triggerTypes && data.triggerTypes.length > 0) {
-            await client.trigger.deleteMany({ where: { automationId: id } });
-            await client.trigger.createMany({
-                data: data.triggerTypes.map(type => ({
-                    automationId: id,
-                    type: type
-                }))
-            });
-        }
-
-        // 3. Update Keywords
-        if (data.keywords) {
-            await client.keyword.deleteMany({ where: { automationId: id } });
-            if (data.keywords.length > 0) {
-                await client.keyword.createMany({
-                    data: data.keywords.map(k => ({
-                        automationId: id,
-                        word: k
-                    }))
-                });
-            }
-        }
-
-        // 4. Update Listener
-        if (data.listenerType) {
-            // Check if listener exists
-            const existingListener = await client.listener.findUnique({ where: { automationId: id } });
-
-            const listenerData = {
-                listener: data.listenerType,
-                commentReply: data.listenerType === 'MESSAGE' ? data.reply : undefined,
-                dmReply: data.listenerType === 'MESSAGE' ? data.reply : undefined,
-                prompt: data.listenerType === 'SMART_AI' ? data.prompt : undefined
-            };
-
-            if (existingListener) {
-                await client.listener.update({
-                    where: { automationId: id },
-                    data: listenerData
-                });
-            } else {
-                await client.listener.create({
-                    data: {
-                        automationId: id,
-                        ...listenerData
-                    }
-                });
-            }
-        }
-
-        // 5. Update Posts
-        if (data.posts) {
-            await client.post.deleteMany({ where: { automationId: id } });
-            if (data.posts.length > 0) {
-                await client.post.createMany({
-                    data: data.posts.map(p => ({
-                        automationId: id,
-                        postid: p.postid,
-                        caption: p.caption,
-                        media: p.media,
-                        mediaType: p.mediaType
-                    }))
-                });
-            }
-        }
-
+        const headers = await getAuthHeader();
+        if (!headers) return { success: false, error: 'Unauthorized' };
+        await axios.put(`${AURA_API}/automations/${id}`, data, { headers });
         revalidatePath(`/automations/${id}`);
         revalidatePath('/automations');
         return { success: true };
-    } catch (error) {
-        console.error('Error updating automation:', error);
-        return { success: false, error: 'Failed to save' };
+    } catch (error: any) {
+        console.error('Error updating automation:', error?.response?.data || error.message);
+        return { success: false, error: error?.response?.data?.message || 'Failed to save' };
     }
+}
+
+export async function deleteAutomation(id: string) {
+    try {
+        const headers = await getAuthHeader();
+        if (!headers) return { success: false, error: 'Unauthorized' };
+        await axios.delete(`${AURA_API}/automations/${id}`, { headers });
+        revalidatePath('/automations');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error deleting automation:', error?.response?.data || error.message);
+        return { success: false, error: 'Failed to delete automation' };
+    }
+}
+
+export async function toggleAutomation(id: string, active: boolean) {
+    return updateAutomation(id, { active });
 }

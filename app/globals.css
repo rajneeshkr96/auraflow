@@ -123,3 +123,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Z-Index Layers ─────────────────────────── */
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+
+[data-radix-dialog-overlay] {
+  z-index: 40 !important;
+}
+
+[data-radix-dialog-content] {
+  z-index: 50 !important;
+}
+
+[data-radix-dropdown-menu-content],
+[data-radix-select-content],
+[data-radix-popover-content] {
+  z-index: 50 !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(0.75 0.01 286); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(0.6 0.015 286); }
