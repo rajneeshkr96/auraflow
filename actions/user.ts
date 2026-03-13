@@ -18,7 +18,7 @@ export const onAuthenticatedUser = async () => {
     if (!authCookie) redirect('/sign-in');
 
     try {
-        const response = await axios.get(`${AURA_API}/users/profile`, {
+        const response = await axios.get(`${CORE_API}/users/profile`, {
             headers: {
                 'Authorization': `Bearer ${authCookie.value}`,
             },
@@ -31,7 +31,7 @@ export const onAuthenticatedUser = async () => {
             statusText: error?.response?.statusText,
             data: error?.response?.data,
             message: error?.message,
-            url: `${AURA_API}/users/profile`
+            url: `${CORE_API}/users/profile`
         });
         return null;
     }
