@@ -28,7 +28,12 @@ export default function PostSelector({ onSelect, posts = [] }: Props) {
         try {
             const result = await getInstagramPosts();
             if (result.status === 200 && Array.isArray(result.data)) {
-                setAvailablePosts(result.data.slice(0, 12));
+                setAvailablePosts(result.data.slice(0, 12).map((p: any) => ({
+                    postid: p.id,
+                    caption: p.caption,
+                    media: p.media_url || p.thumbnail_url,
+                    mediaType: p.media_type,
+                })));
             }
         } catch (e) {
             console.error('Error fetching posts:', e);
@@ -53,7 +58,7 @@ export default function PostSelector({ onSelect, posts = [] }: Props) {
     if (availablePosts.length === 0) {
         return (
             <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200 text-slate-400">
-                <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                <ImageIcon className="w-4 h-4 shrink-0" />
                 <p className="text-xs">No posts found. Connect Instagram to select specific posts.</p>
             </div>
         );

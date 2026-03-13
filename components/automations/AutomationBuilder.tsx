@@ -140,10 +140,10 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
     return (
         <div className="flex gap-5 h-[calc(100vh-200px)]">
             {/* Flow canvas */}
-            <div className="flex-1 rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 relative">
+            <div className="flex-1 rounded-2xl border border-slate-200/60 overflow-hidden bg-slate-50 relative">
                 {/* Toolbar */}
                 <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-                    <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center gap-2 glass px-3 py-2 rounded-xl border border-slate-200/60 premium-shadow">
                         <div className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
                         <span className="text-sm font-medium text-slate-700">Active</span>
                         <Switch checked={active} onCheckedChange={setActive} />
@@ -151,14 +151,14 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                     <Button onClick={handleDelete} variant="destructive" size="icon" disabled={deleting || saving} className="rounded-xl">
                         {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                     </Button>
-                    <Button onClick={handleSave} disabled={saving || deleting} className="bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white rounded-xl flex items-center gap-2">
+                    <Button onClick={handleSave} disabled={saving || deleting} className="bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white rounded-xl flex items-center gap-2 shadow-lg shadow-violet-500/20">
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Save Changes
                     </Button>
                 </div>
 
                 <div className="absolute top-4 left-4 z-10">
-                    <div className="bg-white/90 backdrop-blur-sm text-xs text-slate-500 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <div className="glass text-xs text-slate-500 px-3 py-1.5 rounded-xl border border-slate-200/60">
                         Click a node to edit it
                     </div>
                 </div>
@@ -178,7 +178,7 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
             </div>
 
             {/* Config Panel - always visible */}
-            <div className="w-[300px] flex-shrink-0 bg-white border border-slate-200 rounded-2xl overflow-y-auto shadow-sm">
+                        <div className="w-75 shrink-0 bg-white border border-slate-200/60 rounded-2xl overflow-y-auto premium-shadow">
                 <div className="p-5 border-b border-slate-100">
                     <h3 className="font-bold text-slate-800 text-sm">Configuration</h3>
                     <p className="text-xs text-slate-400 mt-0.5">

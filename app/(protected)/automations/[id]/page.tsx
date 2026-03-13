@@ -4,6 +4,7 @@ import { onAuthenticatedUser } from '@/actions/user'
 import { redirect } from 'next/navigation'
 import AutomationBuilder from '@/components/automations/AutomationBuilder'
 import AutomationWizard from '@/components/automations/AutomationWizard'
+import EditableName from '@/components/automations/editable-name'
 import { ArrowLeft, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
@@ -45,7 +46,7 @@ const Page = async ({ params }: Props) => {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900">{automation.name || 'Untitled Automation'}</h1>
+              <EditableName automationId={id} initialName={automation.name || 'Untitled Automation'} />
               {automation.active && (
                 <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />

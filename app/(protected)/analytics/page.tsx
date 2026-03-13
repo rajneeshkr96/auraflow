@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Analytics</h1>
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Analytics</h1>
           <p className="text-slate-500 text-sm mt-0.5">Track your automation performance and engagement metrics.</p>
         </div>
         <Badge variant="purple" className="flex items-center gap-1.5 px-3 py-1.5">
@@ -47,14 +47,14 @@ export default function AnalyticsPage() {
       {/* Metric Cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {metrics.map((m) => (
-          <Card key={m.label} className="border-0 shadow-sm overflow-hidden">
+          <Card key={m.label} className="border border-slate-200/60 shadow-none overflow-hidden hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 group">
             <CardContent className="p-5">
-              <div className={`inline-flex p-2.5 rounded-xl bg-gradient-to-br from-opacity-10 to-opacity-5 mb-3`}>
-                <div className={`p-1.5 rounded-lg bg-gradient-to-br ${m.gradient}`}>
+              <div className={`inline-flex p-2.5 rounded-xl mb-3 group-hover:scale-105 transition-transform duration-300`}>
+                <div className={`p-1.5 rounded-lg bg-linear-to-br ${m.gradient} shadow-md`}>
                   <m.icon className="w-3.5 h-3.5 text-white" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-slate-900">{m.value}</p>
+              <p className="text-3xl font-black text-slate-900 tracking-tight">{m.value}</p>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">{m.label}</p>
               <div className={`flex items-center gap-1 mt-2 text-[11px] font-semibold ${m.positive ? 'text-emerald-600' : 'text-red-500'}`}>
                 <ArrowUpRight className={`w-3 h-3 ${!m.positive ? 'rotate-180' : ''}`} />
@@ -66,7 +66,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Chart */}
-      <Card className="border-0 shadow-sm">
+      <Card className="border border-slate-200/60 shadow-none">
         <CardHeader>
           <CardTitle className="text-base">Weekly Activity</CardTitle>
           <CardDescription>Triggers, replies and DMs sent over the last 7 days</CardDescription>
@@ -88,7 +88,7 @@ export default function AnalyticsPage() {
                       <div key={d.day} className="flex flex-col items-center gap-1.5 flex-1">
                         <span className="text-[10px] font-bold text-slate-500">{val}</span>
                         <div
-                          className="w-full rounded-lg bg-gradient-to-t from-violet-600 to-blue-500 transition-all"
+                          className="w-full rounded-lg bg-linear-to-t from-violet-600 to-blue-500 transition-all"
                           style={{ height: `${pct}%`, minHeight: 4 }}
                         />
                         <span className="text-[10px] text-slate-400 font-medium">{d.day}</span>
@@ -104,7 +104,7 @@ export default function AnalyticsPage() {
 
       {/* Performance Tips + Empty State */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="border-0 shadow-sm">
+        <Card className="border border-slate-200/60 shadow-none">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Bot className="w-4 h-4 text-violet-500" /> Performance Tips
@@ -117,7 +117,7 @@ export default function AnalyticsPage() {
               { tip: 'Send DMs on comments to maximize leads', badge: null },
             ].map((item) => (
               <div key={item.tip} className="flex items-start gap-2.5">
-                <div className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-5 h-5 bg-violet-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
                   <Info className="w-3 h-3 text-violet-600" />
                 </div>
                 <div className="flex items-center gap-2 flex-1">
@@ -129,7 +129,7 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-900 to-slate-800 text-white">
+        <Card className="border-0 premium-shadow-lg bg-linear-to-br from-slate-950 to-slate-900 text-white">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-3">
               <BarChart3 className="w-5 h-5 text-violet-400" />

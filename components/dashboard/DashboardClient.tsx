@@ -56,10 +56,10 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
             Welcome back, {firstName}! 👋
           </h1>
-          <p className="text-slate-500 mt-1 text-sm">
+          <p className="text-slate-500 mt-1.5 text-sm">
             {instagramConnected
               ? "Your Instagram automations are up and running."
               : "Connect your Instagram to get started with automations."}
@@ -67,7 +67,7 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
         </div>
         <Link
           href="/automations/new"
-          className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-bold rounded-xl transition-all shadow-sm hover:shadow-md"
+          className="hidden sm:flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/25 active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
           New Automation
@@ -77,14 +77,14 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {statCards.map((card) => (
-          <Card key={card.label} className="overflow-hidden border-0 shadow-sm">
+          <Card key={card.label} className="overflow-hidden border border-slate-200/60 shadow-none hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 group">
             <CardContent className="p-5">
-              <div className={`inline-flex p-2.5 rounded-xl bg-gradient-to-br ${card.bg} mb-4`}>
-                <div className={`p-1 rounded-lg bg-gradient-to-br ${card.gradient}`}>
+              <div className={`inline-flex p-2.5 rounded-xl bg-linear-to-br ${card.bg} mb-4 group-hover:scale-105 transition-transform duration-300`}>
+                <div className={`p-1.5 rounded-lg bg-linear-to-br ${card.gradient} shadow-md`}>
                   <card.icon className="w-4 h-4 text-white" />
                 </div>
               </div>
-              <p className="text-3xl font-black text-slate-900">{card.value}</p>
+              <p className="text-3xl font-black text-slate-900 tracking-tight">{card.value}</p>
               <p className="text-xs text-slate-400 font-medium mt-1">{card.label}</p>
             </CardContent>
           </Card>
@@ -94,9 +94,9 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Automations */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-slate-200/60 shadow-none">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
-              <CardTitle className="text-base font-bold">Recent Automations</CardTitle>
+              <CardTitle className="text-base font-bold tracking-tight">Recent Automations</CardTitle>
               <Link href="/automations" className="text-xs text-violet-600 hover:text-violet-700 font-semibold flex items-center gap-1">
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
@@ -123,11 +123,11 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
                         className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${automation.active ? 'bg-gradient-to-br from-violet-500 to-blue-500' : 'bg-slate-100'}`}>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${automation.active ? 'bg-linear-to-br from-violet-500 to-blue-500' : 'bg-slate-100'}`}>
                             <Zap className={`w-4 h-4 ${automation.active ? 'text-white' : 'text-slate-400'}`} />
                           </div>
                           <div>
-                            <p className="text-sm font-semibold text-slate-800 group-hover:text-violet-700 transition-colors truncate max-w-[180px]">
+                            <p className="text-sm font-semibold text-slate-800 group-hover:text-violet-700 transition-colors truncate max-w-45">
                               {automation.name || 'Untitled'}
                             </p>
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -160,7 +160,7 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
         {/* Right Column */}
         <motion.div variants={itemVariants} className="space-y-4">
           {/* Getting Started */}
-          <Card className="border-0 bg-gradient-to-br from-slate-900 to-slate-800 text-white overflow-hidden shadow-lg">
+                    <Card className="border-0 bg-linear-to-br from-slate-950 to-slate-900 text-white overflow-hidden premium-shadow-lg">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold">Getting Started</h3>
@@ -170,8 +170,8 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
                 {onboardingSteps.map((step) => (
                   <Link key={step.label} href={step.href} className="flex items-start gap-3 group">
                     {step.done
-                      ? <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                      : <Circle className="w-5 h-5 text-white/30 mt-0.5 flex-shrink-0 group-hover:text-white/60 transition-colors" />
+                      ? <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
+                      : <Circle className="w-5 h-5 text-white/30 mt-0.5 shrink-0 group-hover:text-white/60 transition-colors" />
                     }
                     <span className={`text-sm ${step.done ? 'text-white/50 line-through' : 'text-white/80 group-hover:text-white transition-colors'}`}>
                       {step.label}
@@ -181,7 +181,7 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
               </div>
               <div className="w-full bg-white/10 rounded-full h-1.5 mb-4">
                 <div
-                  className="h-full bg-gradient-to-r from-violet-400 to-blue-400 rounded-full transition-all"
+                  className="h-full bg-linear-to-r from-violet-400 to-blue-400 rounded-full transition-all"
                   style={{ width: `${(onboardingComplete / onboardingSteps.length) * 100}%` }}
                 />
               </div>
@@ -192,7 +192,7 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
           </Card>
 
           {/* Quick Create */}
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-slate-200/60 shadow-none">
             <CardContent className="p-5">
               <h3 className="font-bold text-slate-800 mb-3 text-sm">Quick Create</h3>
               <div className="space-y-2">

@@ -113,14 +113,14 @@ export default function AutomationWizard({
                             <span className={`text-[10px] font-semibold ${i === step ? 'text-violet-700' : 'text-slate-400'}`}>{s}</span>
                         </div>
                         {i < STEPS.length - 1 && (
-                            <div className={`flex-1 h-0.5 mx-2 mt-[-14px] transition-all ${i < step ? 'bg-violet-600' : 'bg-slate-200'}`} />
+                            <div className={`flex-1 h-0.5 mx-2 -mt-3.5 transition-all ${i < step ? 'bg-violet-600' : 'bg-slate-200'}`} />
                         )}
                     </div>
                 ))}
             </div>
 
             {/* Step Content */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm min-h-[420px] flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm min-h-105 flex flex-col">
                 {step === 0 && <StepType form={form} update={update} />}
                 {step === 1 && <StepTrigger form={form} update={update} />}
                 {step === 2 && <StepAction form={form} update={update} />}
@@ -136,7 +136,7 @@ export default function AutomationWizard({
                             Continue <ArrowRight className="w-4 h-4" />
                         </Button>
                     ) : (
-                        <Button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white">
+                        <Button onClick={handleSave} disabled={saving} className="flex items-center gap-2 bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white">
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                             {saving ? 'Activating...' : 'Activate Automation'}
                         </Button>
@@ -193,7 +193,7 @@ function StepType({ form, update }: { form: WizardState; update: (k: keyof Wizar
                                 <CheckCircle2 className="w-5 h-5 text-violet-600" />
                             </div>
                         )}
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${type.gradient} flex items-center justify-center mb-4 text-xl`}>
+                        <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${type.gradient} flex items-center justify-center mb-4 text-xl`}>
                             {type.emoji}
                         </div>
                         <h3 className="font-bold text-slate-900 mb-1.5">{type.title}</h3>
@@ -331,7 +331,7 @@ function StepAction({ form, update }: { form: WizardState; update: (k: keyof Wiz
                         className="resize-none font-mono text-xs"
                     />
                     <div className="flex items-start gap-2 p-3 bg-violet-50 rounded-lg">
-                        <Sparkles className="w-4 h-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                        <Sparkles className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
                         <p className="text-xs text-violet-700">The AI will use this prompt as context to craft personalized, intelligent responses to every message.</p>
                     </div>
                 </div>
@@ -403,7 +403,7 @@ function StepReview({ form, automationName }: { form: WizardState; automationNam
             </div>
 
             <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                     <p className="text-sm font-bold text-emerald-800">Ready to go live!</p>
                     <p className="text-xs text-emerald-600 mt-0.5">Your automation will start responding to {form.automationType === 'DM' ? 'DMs' : 'comments'} immediately after activation.</p>

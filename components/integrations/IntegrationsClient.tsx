@@ -28,7 +28,7 @@ export default function IntegrationsClient({ instagramIntegration }: Integration
             className="space-y-6 w-full"
         >
             <div>
-                <h1 className="text-2xl font-bold text-slate-900">Integrations</h1>
+                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Integrations</h1>
                 <p className="text-slate-500 text-sm mt-0.5">Connect your social accounts to start automating.</p>
             </div>
 
@@ -36,7 +36,7 @@ export default function IntegrationsClient({ instagramIntegration }: Integration
             <Card className="border-0 shadow-sm overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-400 via-orange-500 to-purple-600 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-linear-to-br from-yellow-400 via-orange-500 to-purple-600 flex items-center justify-center">
                             <Instagram className="w-6 h-6 text-white" />
                         </div>
                         <div>
@@ -53,7 +53,7 @@ export default function IntegrationsClient({ instagramIntegration }: Integration
                     {isConnected ? (
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-linear-to-br from-yellow-400 via-orange-500 to-purple-600 flex items-center justify-center shrink-0">
                                     <Instagram className="w-5 h-5 text-white" />
                                 </div>
                                 <div className="flex-1">
@@ -104,7 +104,7 @@ export default function IntegrationsClient({ instagramIntegration }: Integration
                             <Link
                                 href="/api/integrations/instagram/install"
                                 prefetch={false}
-                                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition-opacity w-full sm:w-auto"
+                                className="flex items-center justify-center gap-2 px-6 py-3 bg-linear-to-r from-orange-500 via-pink-500 to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition-opacity w-full sm:w-auto"
                             >
                                 <Instagram className="w-4 h-4" />
                                 Connect Instagram
@@ -120,9 +120,9 @@ export default function IntegrationsClient({ instagramIntegration }: Integration
                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Coming Soon</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {COMING_SOON.map((platform) => (
-                        <Card key={platform.name} className="border-0 shadow-sm opacity-60">
+                        <Card key={platform.name} className="border border-slate-200/60 shadow-none opacity-60">
                             <CardContent className="p-4">
-                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${platform.bg} flex items-center justify-center mb-3`}>
+                                <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${platform.bg} flex items-center justify-center mb-3`}>
                                     <platform.icon className="w-5 h-5 text-white" />
                                 </div>
                                 <p className="font-bold text-slate-800 text-sm">{platform.name}</p>

@@ -35,7 +35,7 @@ export default function SettingsPage() {
             className="w-full space-y-6"
         >
             <div>
-                <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Settings</h1>
                 <p className="text-slate-500 text-sm mt-0.5">Manage your account preferences and notifications.</p>
             </div>
 
@@ -49,14 +49,14 @@ export default function SettingsPage() {
 
                 {/* PROFILE */}
                 <TabsContent value="profile">
-                    <Card className="border-0 shadow-sm">
+                    <Card className="border border-slate-200/60 shadow-none">
                         <CardHeader>
                             <CardTitle>Profile Information</CardTitle>
                             <CardDescription>Update your personal details and public profile.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-5">
                             <div className="flex items-center gap-5">
-                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
+                                <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold shrink-0 shadow-lg shadow-violet-500/20">
                                     U
                                 </div>
                                 <div>
@@ -98,7 +98,7 @@ export default function SettingsPage() {
 
                 {/* NOTIFICATIONS */}
                 <TabsContent value="notifications">
-                    <Card className="border-0 shadow-sm">
+                    <Card className="border border-slate-200/60 shadow-none">
                         <CardHeader>
                             <CardTitle>Notification Preferences</CardTitle>
                             <CardDescription>Choose what you want to be notified about.</CardDescription>
@@ -133,7 +133,7 @@ export default function SettingsPage() {
 
                 {/* SECURITY */}
                 <TabsContent value="security">
-                    <Card className="border-0 shadow-sm">
+                    <Card className="border border-slate-200/60 shadow-none">
                         <CardHeader>
                             <CardTitle>Security</CardTitle>
                             <CardDescription>Manage your password and login settings.</CardDescription>
@@ -179,13 +179,13 @@ export default function SettingsPage() {
                 {/* ACCOUNT */}
                 <TabsContent value="account">
                     <div className="space-y-4">
-                        <Card className="border-0 shadow-sm">
+                        <Card className="border border-slate-200/60 shadow-none">
                             <CardHeader>
                                 <CardTitle>Subscription Plan</CardTitle>
                                 <CardDescription>You are on the Free plan.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-200">
+                                <div className="flex items-center justify-between p-4 bg-linear-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-200">
                                     <div>
                                         <div className="flex items-center gap-2">
                                             <p className="font-bold text-slate-800">Free Plan</p>
@@ -197,14 +197,14 @@ export default function SettingsPage() {
                                             <li>· Basic analytics</li>
                                         </ul>
                                     </div>
-                                    <button className="px-4 py-2 bg-gradient-to-r from-violet-600 to-blue-600 text-white text-sm font-bold rounded-xl hover:from-violet-500 hover:to-blue-500 transition-all flex items-center gap-2">
+                                    <button className="px-4 py-2 bg-linear-to-r from-violet-600 to-blue-600 text-white text-sm font-bold rounded-xl hover:from-violet-500 hover:to-blue-500 transition-all shadow-md shadow-violet-500/20 flex items-center gap-2">
                                         Upgrade <ExternalLink className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
                             </CardContent>
                         </Card>
 
-                        <Card className="border border-red-200 shadow-sm">
+                        <Card className="border border-red-200/60 shadow-none">
                             <CardHeader>
                                 <CardTitle className="text-red-600">Danger Zone</CardTitle>
                                 <CardDescription>Irreversible actions. Proceed with caution.</CardDescription>
