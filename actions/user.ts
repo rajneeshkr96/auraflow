@@ -5,26 +5,78 @@ import axios from 'axios'
 import { cookies } from 'next/headers'
 
 const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
+const CORE_API = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
 
+async function getAuthCookie() {
+    const cookieStore = await cookies();
+    return cookieStore.get('Authentication');
+}
+
+/** Fetches full user profile (with integrations & subscription) from Aura API */
 export const onAuthenticatedUser = async () => {
-    const cookieStore = await cookies()
-    const authCookie = cookieStore.get('Authentication')
-
-    if (!authCookie) redirect('/sign-in')
+    const authCookie = await getAuthCookie();
+    if (!authCookie) redirect('/sign-in');
 
     try {
-        const response = await axios.get(`${AURA_API}/user/profile`, {
+        const response = await axios.get(`${AURA_API}/users/profile`, {
             headers: {
-                Cookie: `Authentication=${authCookie.value}`
-            }
+                'Authorization': `Bearer ${authCookie.value}`,
+            },
+            withCredentials: true
         });
-
-        const userExist = response.data;
-        if (userExist) return userExist;
-
+        return response.data ?? null;
+    } catch (error: any) {
+        console.error('Aura API User Fetch Error:', {
+            status: error?.response?.status,
+            statusText: error?.response?.statusText,
+            data: error?.response?.data,
+            message: error?.message,
+            url: `${AURA_API}/users/profile`
+        });
         return null;
-    } catch (error) {
-        console.error('Core API User Fetch Error:', error);
+    }
+}
+
+/** Fetches basic user profile (name, email, id) from Core API */
+export const getUserProfile = async () => {
+    const authCookie = await getAuthCookie();
+    if (!authCookie) return null;
+
+    try {
+        const response = await axios.get(`${CORE_API}/users/profile`, {
+            headers: {
+                'Authorization': `Bearer ${authCookie.value}`,
+            },
+            withCredentials: true
+        });
+        return response.data ?? null;
+    } catch (error: any) {
+        console.error('Core API User Profile Error:', {
+            status: error?.response?.status,
+            statusText: error?.response?.statusText,
+            data: error?.response?.data,
+            message: error?.message,
+            url: `${CORE_API}/users/profile`
+        });
         return null;
+    }
+}
+
+/** Update user profile via Core API */
+export const updateUserProfile = async (data: { name?: string }) => {
+    const authCookie = await getAuthCookie();
+    if (!authCookie) return { success: false, error: 'Unauthorized' };
+
+    try {
+        const response = await axios.patch(`${CORE_API}/users/profile`, data, {
+            headers: {
+                'Authorization': `Bearer ${authCookie.value}`,
+            },
+            withCredentials: true
+        });
+        return { success: true, data: response.data };
+    } catch (error: any) {
+        console.error('Core API Update Profile Error:', error?.response?.data || error);
+        return { success: false, error: error?.response?.data?.message || 'Failed to update profile' };
     }
 }

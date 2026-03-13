@@ -1,11 +1,32 @@
-import { getUserProfile } from '@/actions/user';
-import SettingsClient from '@/components/global/settings-client';
+"use client";
 
-export default async function SettingsPage() {
-    const user = await getUserProfile();
-    return <SettingsClient user={user} />;
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { User, Bell, Shield, Palette, LogOut, Trash2, Save, Check, ExternalLink } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { updateUserProfile } from '@/actions/user';
+
+type UserProfile = {
+    id?: number;
+    name?: string | null;
+    email?: string | null;
+    subscription?: { plan?: string } | null;
 }
+
+export default function SettingsClient({ user }: { user?: UserProfile | null }) {
+    const nameParts = user?.name?.split(' ') ?? [];
+    const [firstName, setFirstName] = useState(nameParts[0] ?? '');
+    const [lastName, setLastName] = useState(nameParts.slice(1).join(' ') ?? '');
     const [saved, setSaved] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [notifications, setNotifications] = useState({
         emailOnTrigger: true,
         emailWeeklyReport: false,
@@ -13,10 +34,23 @@ export default async function SettingsPage() {
         marketingEmails: false,
     });
 
-    const handleSave = () => {
-        setSaved(true);
-        toast.success('Settings saved!');
-        setTimeout(() => setSaved(false), 2000);
+    const plan = user?.subscription?.plan || 'Free';
+    const initials = user?.name
+        ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+        : (user?.email?.[0]?.toUpperCase() || 'U');
+
+    const handleSave = async () => {
+        setSaving(true);
+        const fullName = [firstName, lastName].filter(Boolean).join(' ');
+        const result = await updateUserProfile({ name: fullName || undefined });
+        setSaving(false);
+        if (result.success) {
+            setSaved(true);
+            toast.success('Profile saved!');
+            setTimeout(() => setSaved(false), 2000);
+        } else {
+            toast.error(result.error || 'Failed to save');
+        }
     };
 
     return (
@@ -48,7 +82,7 @@ export default async function SettingsPage() {
                         <CardContent className="space-y-5">
                             <div className="flex items-center gap-5">
                                 <div className="w-20 h-20 rounded-2xl bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-2xl font-bold shrink-0 shadow-lg shadow-violet-500/20">
-                                    U
+                                    {initials}
                                 </div>
                                 <div>
                                     <p className="text-sm font-semibold text-slate-700">Profile Picture</p>
@@ -62,25 +96,40 @@ export default async function SettingsPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <Label>First Name</Label>
-                                    <Input placeholder="John" />
+                                    <Input
+                                        placeholder="John"
+                                        value={firstName}
+                                        onChange={e => setFirstName(e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label>Last Name</Label>
-                                    <Input placeholder="Doe" />
+                                    <Input
+                                        placeholder="Doe"
+                                        value={lastName}
+                                        onChange={e => setLastName(e.target.value)}
+                                    />
                                 </div>
                             </div>
                             <div className="space-y-1.5">
                                 <Label>Email Address</Label>
-                                <Input type="email" placeholder="john@example.com" />
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label>Phone Number <span className="text-slate-400 font-normal">(Optional)</span></Label>
-                                <Input type="tel" placeholder="+91 99999 99999" />
+                                <Input
+                                    type="email"
+                                    placeholder="john@example.com"
+                                    value={user?.email ?? ''}
+                                    disabled
+                                    className="bg-slate-50 text-slate-500"
+                                />
+                                <p className="text-[11px] text-slate-400">Email cannot be changed here. Contact support.</p>
                             </div>
                             <div className="flex justify-end">
-                                <Button onClick={handleSave} className="bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2">
+                                <Button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="bg-violet-600 hover:bg-violet-700 text-white flex items-center gap-2"
+                                >
                                     {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-                                    {saved ? 'Saved!' : 'Save Changes'}
+                                    {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
                                 </Button>
                             </div>
                         </CardContent>
@@ -173,13 +222,13 @@ export default async function SettingsPage() {
                         <Card className="border border-slate-200/60 shadow-none">
                             <CardHeader>
                                 <CardTitle>Subscription Plan</CardTitle>
-                                <CardDescription>You are on the Free plan.</CardDescription>
+                                <CardDescription>You are on the {plan} plan.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="flex items-center justify-between p-4 bg-linear-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-200">
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <p className="font-bold text-slate-800">Free Plan</p>
+                                            <p className="font-bold text-slate-800">{plan} Plan</p>
                                             <Badge variant="secondary">Current</Badge>
                                         </div>
                                         <ul className="text-xs text-slate-500 mt-1.5 space-y-0.5">

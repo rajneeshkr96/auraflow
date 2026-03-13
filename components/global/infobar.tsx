@@ -4,6 +4,11 @@ import { usePathname } from "next/navigation";
 import { Bell, Search } from "lucide-react";
 import Link from "next/link";
 
+type User = {
+  name?: string | null;
+  email?: string | null;
+}
+
 const BREADCRUMBS: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/automations": "Automations",
@@ -20,9 +25,13 @@ function getBreadcrumb(pathname: string): string {
   return "Dashboard";
 }
 
-export default function Infobar() {
+export default function Infobar({ user }: { user?: User | null }) {
   const pathname = usePathname();
   const breadcrumb = getBreadcrumb(pathname);
+
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : (user?.email?.[0]?.toUpperCase() || 'U');
 
   return (
     <header className="h-16 glass border-b border-slate-200/60 flex items-center justify-between px-6 z-10 shrink-0">
@@ -52,9 +61,10 @@ export default function Infobar() {
         {/* Avatar */}
         <Link
           href={`${process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3003"}/profile`}
+          title={user?.name || user?.email || 'Profile'}
           className="w-9 h-9 rounded-xl bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm hover:shadow-lg hover:shadow-violet-500/20 transition-all active:scale-95"
         >
-          U
+          {initials}
         </Link>
       </div>
     </header>

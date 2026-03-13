@@ -9,6 +9,13 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
+type User = {
+  id?: number;
+  name?: string | null;
+  email?: string | null;
+  subscription?: { plan?: string } | null;
+}
+
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Automations", icon: Zap, href: "/automations" },
@@ -17,8 +24,14 @@ const navItems = [
   { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ user }: { user?: User | null }) {
   const pathname = usePathname();
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'My Account';
+  const initials = user?.name
+    ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : (user?.email?.[0]?.toUpperCase() || 'U');
+  const plan = user?.subscription?.plan || 'Free';
 
   return (
     <aside className="flex flex-col h-full w-65 bg-slate-950 text-white shrink-0 border-r border-white/5">
@@ -76,7 +89,7 @@ export default function Sidebar() {
         <div className="bg-linear-to-br from-violet-600/15 to-blue-600/10 border border-violet-500/15 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1.5">
             <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-[11px] font-bold text-white/90">Free Plan</span>
+            <span className="text-[11px] font-bold text-white/90">{plan} Plan</span>
           </div>
           <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">Upgrade to unlock AI Agents, analytics & unlimited automations.</p>
           <button className="w-full py-2 text-[11px] font-bold rounded-lg bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white transition-all shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/25 active:scale-[0.98]">
@@ -87,11 +100,11 @@ export default function Sidebar() {
         {/* User */}
         <div className="flex items-center gap-3 mt-3 px-2 py-2 rounded-xl hover:bg-white/4 transition-colors">
           <div className="w-8 h-8 rounded-lg bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
-            U
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white/90 truncate">My Account</p>
-            <p className="text-[10px] text-slate-600 truncate">Free plan</p>
+            <p className="text-xs font-medium text-white/90 truncate">{displayName}</p>
+            <p className="text-[10px] text-slate-600 truncate">{plan} plan</p>
           </div>
           <Link href="/settings" className="text-slate-600 hover:text-slate-400 transition-colors">
             <Settings className="w-3.5 h-3.5" />
