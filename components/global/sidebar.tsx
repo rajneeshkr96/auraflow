@@ -16,12 +16,11 @@ type User = {
   subscription?: { plan?: string } | null;
 }
 
-const navItems = [
+const appNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Automations", icon: Zap, href: "/automations" },
   { label: "Analytics", icon: BarChart3, href: "/analytics" },
   { label: "Integrations", icon: Plug, href: "/integrations" },
-  { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 export default function Sidebar({ user }: { user?: User | null }) {
@@ -51,7 +50,7 @@ export default function Sidebar({ user }: { user?: User | null }) {
       {/* Nav */}
       <nav className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
         <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest px-3 mb-3">Navigation</p>
-        {navItems.map((item) => {
+        {appNavItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
             <Link
@@ -106,9 +105,9 @@ export default function Sidebar({ user }: { user?: User | null }) {
             <p className="text-xs font-medium text-white/90 truncate">{displayName}</p>
             <p className="text-[10px] text-slate-600 truncate">{plan} plan</p>
           </div>
-          <Link href="/settings" className="text-slate-600 hover:text-slate-400 transition-colors">
+          <a href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`} className="text-slate-600 hover:text-slate-400 transition-colors" target="_blank" rel="noopener noreferrer">
             <Settings className="w-3.5 h-3.5" />
-          </Link>
+          </a>
         </div>
       </div>
     </aside>

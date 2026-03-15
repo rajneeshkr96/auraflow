@@ -18,13 +18,16 @@ export const onAuthenticatedUser = async () => {
     if (!authCookie) redirect('/sign-in');
 
     try {
-        const response = await axios.get(`${CORE_API}/users/profile`, {
+        const response = await fetch(`${CORE_API}/users/profile`, {
             headers: {
                 'Authorization': `Bearer ${authCookie.value}`,
             },
-            withCredentials: true
+            credentials: 'include',
+            cache: 'no-store'
         });
-        return response.data ?? null;
+
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
     } catch (error: any) {
         console.error('Aura API User Fetch Error:', {
             status: error?.response?.status,
@@ -78,5 +81,29 @@ export const updateUserProfile = async (data: { name?: string }) => {
     } catch (error: any) {
         console.error('Core API Update Profile Error:', error?.response?.data || error);
         return { success: false, error: error?.response?.data?.message || 'Failed to update profile' };
+    }
+}
+
+/** Fetches user integrations from Aura API */
+export const getUserIntegrations = async () => {
+    const authCookie = await getAuthCookie();
+    if (!authCookie) return [];
+
+    try {
+        const response = await fetch(`${AURA_API}/integrations`, {
+            headers: {
+                'Authorization': `Bearer ${authCookie.value}`,
+                'Cookie': `Authentication=${authCookie.value}`
+            },
+            credentials: 'include',
+            cache: 'no-store'
+        });
+
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data || [];
+    } catch (error: any) {
+        console.error('Error fetching integrations:', error?.message);
+        return [];
     }
 }

@@ -14,7 +14,6 @@ const BREADCRUMBS: Record<string, string> = {
   "/automations": "Automations",
   "/analytics": "Analytics",
   "/integrations": "Integrations",
-  "/settings": "Settings",
 };
 
 function getBreadcrumb(pathname: string): string {

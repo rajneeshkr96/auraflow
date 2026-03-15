@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import axios from 'axios'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 
 export async function GET(req: Request) {
     // Need to handle the callback
@@ -123,14 +124,25 @@ export async function GET(req: Request) {
         const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
 
         // 2. Save Integration in Core API
-        await axios.post(`${AURA_API}/integrations`, {
-            token: pageAccessToken || accessToken,
-            instagramId: instagramId,
-            pageId: pageId,
-            name: 'INSTAGRAM'
-        }, { headers });
+        try {
+            await axios.post(`${AURA_API}/integrations`, {
+                token: pageAccessToken || accessToken,
+                instagramId: instagramId,
+                pageId: pageId,
+                name: 'INSTAGRAM'
+            }, { headers });
+        } catch (integrationError: any) {
+            console.error('Integration Creation Error:', integrationError?.response?.data || integrationError.message);
+            return NextResponse.json({
+                error: 'Failed to save integration. Please try again.'
+            }, { status: 500 });
+        }
 
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard`)
+        // Revalidate the integrations page to show updated status
+        revalidatePath('/integrations')
+        revalidatePath('/') // Revalidate all pages that might fetch user data
+
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations`)
 
     } catch (error: any) {
         console.error('OAuth Error', error?.response?.data || error.message)

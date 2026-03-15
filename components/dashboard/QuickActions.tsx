@@ -10,11 +10,19 @@ interface ActionCardProps {
     icon: React.ReactNode;
     href: string;
     color: string;
+    external?: boolean;
 }
 
-function ActionCard({ title, description, icon, href, color }: ActionCardProps) {
+function ActionCard({ title, description, icon, href, color, external }: ActionCardProps) {
+    const Component = external ? 'a' : Link;
+    const props = external ? {
+        href,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+    } : { href };
+
     return (
-        <Link href={href}>
+        <Component {...props}>
             <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -26,11 +34,13 @@ function ActionCard({ title, description, icon, href, color }: ActionCardProps) 
                 <h3 className="text-lg font-black text-slate-900 mb-2">{title}</h3>
                 <p className="text-sm text-slate-500 font-medium">{description}</p>
             </motion.div>
-        </Link>
+        </Component>
     );
 }
 
 export default function QuickActions() {
+    const authUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
+
     const actions = [
         {
             title: 'Create Automation',
@@ -57,8 +67,9 @@ export default function QuickActions() {
             title: 'Settings',
             description: 'Manage your account and preferences',
             icon: <Settings className="w-6 h-6 text-white" />,
-            href: '/settings',
+            href: `${authUrl}/profile`,
             color: 'bg-slate-900',
+            external: true,
         },
     ];
 
