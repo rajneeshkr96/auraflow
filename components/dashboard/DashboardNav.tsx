@@ -3,10 +3,20 @@
 import { LayoutGrid, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
+const AUTH_URL = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
+const API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+
 export default function DashboardNav() {
-    const handleLogout = () => {
-        // Redirect to central auth logout
-        window.location.href = `http://localhost:3003/login?redirect=${encodeURIComponent(window.location.origin)}`;
+    const handleLogout = async () => {
+        // Call backend to clear HttpOnly cookie server-side
+        await fetch(`${API_URL}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+        }).catch(() => {});
+        // Clear cookie client-side as fallback
+        document.cookie = 'Authentication=; path=/; max-age=0';
+        // Redirect to central auth login
+        window.location.href = `${AUTH_URL}/login`;
     };
 
     return (

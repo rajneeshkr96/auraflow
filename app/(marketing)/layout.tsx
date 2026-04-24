@@ -1,22 +1,21 @@
-import Footer from '@/components/marketing/Footer'
-import Navbar from '@/components/marketing/Navbar'
-import React from 'react'
+import React from 'react';
+import Navbar from '@/components/marketing/Navbar';
+import Footer from '@/components/marketing/Footer';
 
 type Props = {
-  children: React.ReactNode
-}
+  children: React.ReactNode;
+};
 
 const Layout = ({ children }: Props) => {
   return (
-   <>
-       <Navbar />
-       <main className="pt-20">
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <main >
         {children}
-       </main>
-        <Footer />
-   </>
+      </main>
+      <Footer />
+    </div>
+  );
+};
 
-  )
-}
-
-export default Layout
+export default Layout;

@@ -14,6 +14,7 @@ const BREADCRUMBS: Record<string, string> = {
   "/automations": "Automations",
   "/analytics": "Analytics",
   "/integrations": "Integrations",
+  "/settings": "Settings",
 };
 
 function getBreadcrumb(pathname: string): string {
@@ -33,35 +34,31 @@ export default function Infobar({ user }: { user?: User | null }) {
     : (user?.email?.[0]?.toUpperCase() || 'U');
 
   return (
-    <header className="h-16 glass border-b border-slate-200/60 flex items-center justify-between px-6 z-10 shrink-0">
-      <div className="flex items-center gap-3">
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-slate-400 font-medium">Auraflow</span>
-          <span className="text-slate-200">/</span>
-          <span className="text-slate-800 font-semibold">{breadcrumb}</span>
-        </div>
+    <header className="h-20 bg-background border-b border-border flex items-center justify-between px-10 z-10 shrink-0">
+      <div className="flex items-center gap-3 text-sm">
+        <span className="text-muted-foreground font-bold tracking-tight uppercase text-[10px]">Auraflow</span>
+        <span className="text-muted-foreground/30 font-light">/</span>
+        <span className="text-foreground font-bold tracking-tight">{breadcrumb}</span>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-6">
         {/* Search */}
-        <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 text-xs text-slate-400 bg-slate-50/80 border border-slate-200/60 rounded-xl cursor-pointer hover:border-slate-300 hover:bg-slate-100/60 transition-all w-52">
-          <Search className="w-3.5 h-3.5" />
-          <span>Quick search...</span>
-          <span className="ml-auto font-mono text-[10px] bg-white rounded-md px-1.5 py-0.5 border border-slate-200 text-slate-500">⌘K</span>
+        <div className="hidden lg:flex items-center gap-3 px-4 py-2.5 text-xs text-muted-foreground bg-secondary/50 border border-border rounded-full cursor-pointer hover:border-primary/20 transition-all w-72 group">
+          <Search className="w-4 h-4 group-hover:text-primary transition-colors" />
+          <span className="font-bold">Search everything...</span>
+          <span className="ml-auto font-bold text-[10px] bg-background border border-border rounded-lg px-2 py-0.5 text-muted-foreground">⌘K</span>
         </div>
 
         {/* Notifications */}
-        <button className="relative w-9 h-9 rounded-xl bg-slate-50/80 border border-slate-200/60 flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:border-slate-300 transition-all">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 rounded-full border-2 border-white animate-pulse" />
+        <button className="relative w-11 h-11 rounded-2xl bg-secondary border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/20 transition-all group">
+          <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span className="absolute top-3 right-3 w-2 h-2 bg-primary rounded-full border-2 border-background" />
         </button>
 
-        {/* Avatar */}
+        {/* Avatar Mobile */}
         <Link
-          href={`${process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3003"}/profile`}
-          title={user?.name || user?.email || 'Profile'}
-          className="w-9 h-9 rounded-xl bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm hover:shadow-lg hover:shadow-violet-500/20 transition-all active:scale-95"
+          href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+          className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
         >
           {initials}
         </Link>

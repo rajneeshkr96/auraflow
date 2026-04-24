@@ -1,77 +1,81 @@
 "use client";
-
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid } from 'lucide-react';
+import { LayoutGrid, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Navbar = () => {
-  // We handle scroll state locally here since this is a UI specific interaction
   const [isScrolled, setIsScrolled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 10);
-    };
-
-    // Very naive check for client side - if we have the Authentication cookie
-    // Since it's probably HttpOnly, this check might fail. We can also check localStorage,
-    // or rely on a generic "Get Started / Dashboard" button that redirects.
-    // For now we'll just check if there's any cookie, but the redirect logic handles protection anyway.
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    setCurrentUrl(window.location.href);
     setIsAuthenticated(document.cookie.includes('Authentication='));
-
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-      const getAuthUrl = (path: string) => {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3002';
-        if (!currentUrl) return `${baseUrl}${path}`;
-        return `${baseUrl}${path}?redirect=${encodeURIComponent(currentUrl)}`;
-    };
+  const getAuthUrl = (path: string) => {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
+    if (!currentUrl) return `${baseUrl}${path}`;
+    return `${baseUrl}${path}?redirect=${encodeURIComponent(currentUrl)}`;
+  };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 backdrop-blur-md border-b border-slate-100 py-3' : 'bg-transparent py-5'
-      }`}>
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        {/* Logo Section */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+    <div className="fixed top-6 left-0 right-0 z-50 flex justify-center px-6">
+      <motion.nav 
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className={`flex items-center gap-8 px-6 py-3 rounded-full transition-all duration-500 ${
+          isScrolled 
+            ? 'bg-white/80 backdrop-blur-xl border border-slate-200/50 shadow-[0_8px_32px_rgba(0,0,0,0.05)] w-full max-w-4xl' 
+            : 'bg-transparent w-full max-w-5xl'
+        }`}
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
             <LayoutGrid className="text-white w-5 h-5" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">Auraflow</span>
+          <span className="text-lg font-bold tracking-tight text-foreground hidden sm:block">Auraflow</span>
         </div>
 
-        {/* Navigation Links - Hidden on mobile */}
-        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-600">
-          <Link href="/features" className="hover:text-indigo-600 transition-colors">Features</Link>
-          <Link href="/pricing" className="hover:text-indigo-600 transition-colors">Pricing</Link>
-          <Link href="/about" className="hover:text-indigo-600 transition-colors">About</Link>
-          <Link href="/contact" className="hover:text-indigo-600 transition-colors">Contact</Link>
+        <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-muted-foreground ml-auto">
+          <Link href="/features" className="hover:text-foreground transition-colors relative group">
+            Features
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+          </Link>
+          <Link href="/pricing" className="hover:text-foreground transition-colors relative group">
+            Pricing
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+          </Link>
+          <Link href="/about" className="hover:text-foreground transition-colors relative group">
+            About
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+          </Link>
         </div>
 
-        {/* Auth Section */}
-        <div className="flex items-center gap-4">
-
+        <div className="flex items-center gap-3 ml-auto md:ml-0">
           {isAuthenticated ? (
-            <Link href="/dashboard" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-full transition-all active:scale-95">
+            <Link href="/dashboard" className="group flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-bold rounded-full transition-all hover:scale-105 active:scale-95">
               Dashboard
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           ) : (
             <>
-              <a href={getAuthUrl("/login")} className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
+              <a href={getAuthUrl("/login")} className="hidden sm:block text-sm font-bold text-muted-foreground hover:text-foreground transition-colors px-4">
                 Login
               </a>
-              <a href={getAuthUrl("/signup")} className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-full transition-all active:scale-95">
-                Get Started
+              <a href={getAuthUrl("/signup")} className="group flex items-center gap-2 px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-full transition-all hover:shadow-[0_8px_20px_rgba(var(--primary),0.3)] hover:scale-105 active:scale-95">
+                Join Us
+                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
               </a>
             </>
           )}
-
         </div>
-      </div>
-    </nav>
+      </motion.nav>
+    </div>
   );
 };
 

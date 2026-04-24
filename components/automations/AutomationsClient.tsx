@@ -7,8 +7,9 @@ import {
     Plus, Zap, MessageSquare, Send, Bot, MoreHorizontal,
     Trash2, Edit, Power, Search, Filter, Pencil
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Badge } from '@codeswayam/ui';
+import { Input } from '@codeswayam/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toggleAutomation, deleteAutomation, updateAutomation } from '@/actions/automations';
@@ -83,46 +84,61 @@ export default function AutomationsClient({ automations: initial }: { automation
     const activeCount = automations.filter(a => a.active).length;
 
     return (
-        <div className="space-y-6 w-full">
+        <div className="space-y-12 w-full">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-end justify-between gap-8">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Automations</h1>
-                    <p className="text-slate-500 text-sm mt-0.5">
-                        {automations.length} total · <span className="text-emerald-600 font-semibold">{activeCount} live</span>
-                    </p>
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="w-2 h-2 rounded-full bg-primary" />
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Automations List</span>
+                    </div>
+                    <h1 className="text-5xl md:text-7xl font-bold text-foreground tracking-tighter leading-none">
+                        Manage your <br />
+                        <span className="text-muted-foreground">flows.</span>
+                    </h1>
                 </div>
-                <Link
-                    href="/automations/new"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/25 active:scale-[0.98]"
-                >
-                    <Plus className="w-4 h-4" />
-                    New Automation
-                </Link>
+                <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                    <div className="text-right hidden md:block">
+                        <p className="text-3xl font-bold tracking-tighter">{automations.length}</p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Flows</p>
+                    </div>
+                    <Link
+                        href="/automations/new"
+                        className="flex items-center justify-center gap-2 h-16 px-8 bg-primary text-white text-lg font-bold rounded-full transition-all shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 w-full sm:w-auto"
+                    >
+                        <Plus className="w-5 h-5" />
+                        New Automation
+                    </Link>
+                </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+                <div className="relative flex-1 w-full">
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                     <Input
-                        className="pl-9"
-                        placeholder="Search automations..."
+                        className="pl-14 h-16 rounded-[24px] border-border bg-white text-lg font-medium focus:ring-primary/20 focus:border-primary/30"
+                        placeholder="Search flows..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                     />
                 </div>
-                <Select value={filter} onValueChange={setFilter}>
-                    <SelectTrigger className="w-36">
-                        <Filter className="w-3.5 h-3.5 mr-2 text-slate-400" />
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    {(['all', 'active', 'inactive'] as const).map(f => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={cn(
+                                "h-16 px-8 rounded-full text-sm font-bold uppercase tracking-widest transition-all",
+                                filter === f 
+                                    ? "bg-foreground text-background" 
+                                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            {f}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* List */}
@@ -132,7 +148,7 @@ export default function AutomationsClient({ automations: initial }: { automation
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
                     {filtered.map((automation, i) => {
                         const { hasDm, hasComment, isAI } = getAutomationType(automation);
@@ -140,20 +156,20 @@ export default function AutomationsClient({ automations: initial }: { automation
                         return (
                             <motion.div
                                 key={automation.id}
-                                initial={{ opacity: 0, y: 16 }}
+                                initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className={`bg-white border rounded-2xl p-5 group hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 ${automation.active ? 'border-slate-200/60' : 'border-slate-100 opacity-70 hover:opacity-100'}`}
+                                className={`group bg-white border rounded-[40px] p-8 hover:border-primary/30 transition-all duration-500 ${!automation.active && 'opacity-60 grayscale-[0.5]'}`}
                             >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105 ${
-                                        isAI ? 'bg-linear-to-br from-violet-500 to-purple-600 shadow-md shadow-violet-500/20' :
-                                        hasDm ? 'bg-linear-to-br from-blue-500 to-cyan-600 shadow-md shadow-blue-500/20' :
-                                        'bg-linear-to-br from-orange-500 to-pink-600 shadow-md shadow-orange-500/20'
+                                <div className="flex items-start justify-between mb-10">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 ${
+                                        isAI ? 'bg-primary text-white' :
+                                        hasDm ? 'bg-secondary text-primary' :
+                                        'bg-secondary text-muted-foreground'
                                     }`}>
-                                        {isAI ? <Bot className="w-5 h-5 text-white" /> :
-                                         hasDm ? <Send className="w-5 h-5 text-white" /> :
-                                         <MessageSquare className="w-5 h-5 text-white" />}
+                                        {isAI ? <Bot className="w-7 h-7" /> :
+                                         hasDm ? <Send className="w-7 h-7" /> :
+                                         <MessageSquare className="w-7 h-7" />}
                                     </div>
 
                                     <div className="flex items-center gap-2">
@@ -161,35 +177,32 @@ export default function AutomationsClient({ automations: initial }: { automation
                                             checked={automation.active}
                                             onCheckedChange={() => handleToggle(automation.id, automation.active)}
                                             disabled={loadingId === automation.id}
+                                            className="data-[state=checked]:bg-primary"
                                         />
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                                                    <MoreHorizontal className="w-4 h-4" />
+                                                <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition-all">
+                                                    <MoreHorizontal className="w-5 h-5" />
                                                 </button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-40">
-                                                <DropdownMenuItem asChild>
-                                                    <Link href={`/automations/${automation.id}`} className="flex items-center gap-2">
-                                                        <Edit className="w-3.5 h-3.5" /> Edit
+                                            <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-48 shadow-xl border-border">
+                                                <DropdownMenuItem asChild className="rounded-xl p-3 font-bold cursor-pointer">
+                                                    <Link href={`/automations/${automation.id}`} className="flex items-center gap-3">
+                                                        <Edit className="w-4 h-4 text-primary" /> Edit Flow
                                                     </Link>
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     onClick={() => { setRenamingId(automation.id); setRenameValue(automation.name || ''); }}
-                                                    className="flex items-center gap-2"
+                                                    className="rounded-xl p-3 font-bold cursor-pointer flex items-center gap-3"
                                                 >
-                                                    <Pencil className="w-3.5 h-3.5" /> Rename
+                                                    <Pencil className="w-4 h-4 text-primary" /> Rename
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleToggle(automation.id, automation.active)} className="flex items-center gap-2">
-                                                    <Power className="w-3.5 h-3.5" />
-                                                    {automation.active ? 'Pause' : 'Activate'}
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
+                                                <DropdownMenuSeparator className="my-1" />
                                                 <DropdownMenuItem
                                                     onClick={() => handleDelete(automation.id, automation.name)}
-                                                    className="flex items-center gap-2 text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                    className="rounded-xl p-3 font-bold cursor-pointer flex items-center gap-3 text-destructive"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                                    <Trash2 className="w-4 h-4" /> Delete Flow
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -198,34 +211,33 @@ export default function AutomationsClient({ automations: initial }: { automation
 
                                 <Link href={`/automations/${automation.id}`} className="block">
                                     {renamingId === automation.id ? (
-                                        <div className="flex items-center gap-2 mb-2" onClick={e => e.preventDefault()}>
+                                        <div className="flex items-center gap-2 mb-4" onClick={e => e.preventDefault()}>
                                             <input
                                                 value={renameValue}
                                                 onChange={e => setRenameValue(e.target.value)}
                                                 onKeyDown={e => { if (e.key === 'Enter') handleRename(automation.id); if (e.key === 'Escape') setRenamingId(null); }}
-                                                className="flex-1 text-sm font-bold text-slate-900 bg-transparent border-b-2 border-violet-400 outline-none py-0.5 min-w-0"
+                                                className="flex-1 text-2xl font-bold text-foreground bg-transparent border-b-2 border-primary outline-none py-1"
                                                 maxLength={100}
                                                 autoFocus
                                             />
-                                            <button onClick={e => { e.preventDefault(); handleRename(automation.id); }} className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded">
-                                                <Pencil className="w-3.5 h-3.5" />
-                                            </button>
                                         </div>
                                     ) : (
-                                        <h3 className="font-bold text-slate-900 group-hover:text-violet-700 transition-colors truncate mb-2">
-                                            {automation.name || 'Untitled Automation'}
+                                        <h3 className="text-2xl font-bold text-foreground tracking-tight group-hover:text-primary transition-colors truncate mb-4">
+                                            {automation.name || 'Untitled Flow'}
                                         </h3>
                                     )}
-                                    <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                                        {isNew && <Badge variant="secondary" className="text-[10px]">Draft</Badge>}
-                                        {hasDm && <Badge variant="info" className="text-[10px]">DM</Badge>}
-                                        {hasComment && <Badge variant="purple" className="text-[10px]">Comment</Badge>}
-                                        {isAI && <Badge variant="warning" className="text-[10px]">AI Agent</Badge>}
-                                        {!isNew && !hasDm && !hasComment && <Badge variant="secondary" className="text-[10px]">Configured</Badge>}
+                                    <div className="flex flex-wrap items-center gap-2 mb-8">
+                                        {isNew && <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary px-3 py-1 rounded-full">Draft</span>}
+                                        {hasDm && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">DM Flow</span>}
+                                        {hasComment && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">Comments</span>}
+                                        {isAI && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary text-white px-3 py-1 rounded-full">Smart AI</span>}
                                     </div>
-                                    <div className="flex items-center justify-between text-xs text-slate-400">
-                                        <span>{automation.listener ? 'Has action' : 'No action set'}</span>
-                                        <span>{new Date(automation.createdAt).toLocaleDateString()}</span>
+                                    <div className="flex items-center justify-between pt-6 border-t border-border">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${automation.active ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{automation.active ? 'Active' : 'Paused'}</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">{new Date(automation.createdAt).toLocaleDateString()}</span>
                                     </div>
                                 </Link>
                             </motion.div>
@@ -239,25 +251,25 @@ export default function AutomationsClient({ automations: initial }: { automation
 
 function EmptyState({ hasSearch }: { hasSearch: boolean }) {
     return (
-        <div className="bg-white border border-slate-200/60 rounded-2xl p-16 text-center flex flex-col items-center">
-            <div className="w-16 h-16 bg-linear-to-br from-violet-100 to-blue-100 rounded-2xl flex items-center justify-center mb-5">
-                <Zap className="w-8 h-8 text-violet-500" />
+        <div className="bg-white border border-border rounded-[48px] p-24 text-center flex flex-col items-center">
+            <div className="w-24 h-24 bg-secondary rounded-[40px] flex items-center justify-center mb-8">
+                <Zap className="w-10 h-10 text-muted-foreground/30" />
             </div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">
-                {hasSearch ? 'No results found' : 'No automations yet'}
+            <h3 className="text-3xl font-bold tracking-tighter text-foreground mb-4">
+                {hasSearch ? 'No flows found' : 'Ready to grow?'}
             </h3>
-            <p className="text-slate-400 text-sm max-w-xs mb-6">
+            <p className="text-muted-foreground font-medium max-w-sm mb-10 text-lg">
                 {hasSearch
-                    ? 'Try adjusting your search or filters.'
-                    : 'Create your first automation to start responding to Instagram comments and DMs automatically.'}
+                    ? 'Try adjusting your search filters to find what you are looking for.'
+                    : 'Create your first automated flow and start scaling your Instagram engagement today.'}
             </p>
             {!hasSearch && (
                 <Link
                     href="/automations/new"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-violet-600 to-blue-600 text-white font-bold rounded-xl hover:from-violet-500 hover:to-blue-500 transition-all text-sm shadow-lg shadow-violet-500/20"
+                    className="flex items-center gap-3 h-16 px-10 bg-primary text-white font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-lg shadow-xl shadow-primary/20"
                 >
-                    <Plus className="w-4 h-4" />
-                    Create Automation
+                    <Plus className="w-5 h-5" />
+                    Start First Flow
                 </Link>
             )}
         </div>

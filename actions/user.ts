@@ -1,8 +1,8 @@
 'use server'
-
+ 
 import { redirect } from 'next/navigation'
-import axios from 'axios'
 import { cookies } from 'next/headers'
+import { sdk } from '@codeswayam/api-client'
 
 const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
 const CORE_API = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
@@ -12,55 +12,56 @@ async function getAuthCookie() {
     return cookieStore.get('Authentication');
 }
 
-/** Fetches full user profile (with integrations & subscription) from Aura API */
+/** Helper to get an authorized SDK instance for server-side calls */
+const getAuthorizedSDK = (token: string) => {
+    return {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Cookie': `Authentication=${token}`
+        }
+    };
+};
+
+/** Fetches comprehensive user context (profile, subscriptions, wallet, integrations) */
 export const onAuthenticatedUser = async () => {
     const authCookie = await getAuthCookie();
     if (!authCookie) redirect('/sign-in');
 
     try {
-        const response = await fetch(`${CORE_API}/users/profile`, {
-            headers: {
-                'Authorization': `Bearer ${authCookie.value}`,
-            },
-            credentials: 'include',
-            cache: 'no-store'
-        });
-
-        if (!response.ok) throw new Error(`API error: ${response.status}`);
-        return await response.json();
+        const authOptions = getAuthorizedSDK(authCookie.value);
+        const fullProfile = await sdk.getFullProfile(authOptions);
+        
+        // Fetch integrations from Aura API (port 3005)
+        const integrations = await getUserIntegrations(); 
+        
+        return {
+            ...fullProfile.profile,
+            subscriptions: fullProfile.subscriptions,
+            wallet: fullProfile.wallet,
+            integrations
+        };
     } catch (error: any) {
-        console.error('Aura API User Fetch Error:', {
-            status: error?.response?.status,
-            statusText: error?.response?.statusText,
-            data: error?.response?.data,
-            message: error?.message,
-            url: `${CORE_API}/users/profile`
-        });
+        if (error.message === 'UNAUTHORIZED') {
+            redirect('/sign-in');
+        }
+        console.error('onAuthenticatedUser Error:', error.message || error);
         return null;
     }
 }
 
-/** Fetches basic user profile (name, email, id) from Core API */
+/** Fetches basic user profile from Core API */
 export const getUserProfile = async () => {
     const authCookie = await getAuthCookie();
     if (!authCookie) return null;
 
     try {
-        const response = await axios.get(`${CORE_API}/users/profile`, {
-            headers: {
-                'Authorization': `Bearer ${authCookie.value}`,
-            },
-            withCredentials: true
-        });
-        return response.data ?? null;
+        const authOptions = getAuthorizedSDK(authCookie.value);
+        const profile = await sdk.auth.getProfile(authOptions);
+        return profile?.data || profile;
     } catch (error: any) {
-        console.error('Core API User Profile Error:', {
-            status: error?.response?.status,
-            statusText: error?.response?.statusText,
-            data: error?.response?.data,
-            message: error?.message,
-            url: `${CORE_API}/users/profile`
-        });
+        if (error.message !== 'UNAUTHORIZED') {
+            console.error('getUserProfile Error:', error.message || error);
+        }
         return null;
     }
 }
@@ -71,16 +72,16 @@ export const updateUserProfile = async (data: { name?: string }) => {
     if (!authCookie) return { success: false, error: 'Unauthorized' };
 
     try {
-        const response = await axios.patch(`${CORE_API}/users/profile`, data, {
-            headers: {
-                'Authorization': `Bearer ${authCookie.value}`,
-            },
-            withCredentials: true
+        const authOptions = getAuthorizedSDK(authCookie.value);
+        const response = await sdk.request('/users/profile', {
+            ...authOptions,
+            method: 'PATCH',
+            body: JSON.stringify(data)
         });
-        return { success: true, data: response.data };
+        return { success: true, data: response };
     } catch (error: any) {
-        console.error('Core API Update Profile Error:', error?.response?.data || error);
-        return { success: false, error: error?.response?.data?.message || 'Failed to update profile' };
+        console.error('updateUserProfile Error:', error.message);
+        return { success: false, error: error.message || 'Failed to update profile' };
     }
 }
 
@@ -99,11 +100,14 @@ export const getUserIntegrations = async () => {
             cache: 'no-store'
         });
 
-        if (!response.ok) return [];
+        if (!response.ok) {
+            console.error(`Fetch integrations failed: ${response.status} ${response.statusText}`);
+            return [];
+        }
         const data = await response.json();
         return data || [];
     } catch (error: any) {
-        console.error('Error fetching integrations:', error?.message);
+        console.error('Error fetching integrations from', AURA_API, ':', error?.message);
         return [];
     }
 }

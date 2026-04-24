@@ -3,11 +3,11 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  LayoutDashboard, Zap, Plug, BarChart3, Settings, CreditCard,
-  Sparkles, ChevronRight
+  LayoutDashboard, Zap, Plug, BarChart3, Settings,
+  Sparkles, ChevronRight, Crown
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 
 type User = {
   id?: number;
@@ -19,8 +19,9 @@ type User = {
 const appNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Automations", icon: Zap, href: "/automations" },
-  { label: "Analytics", icon: BarChart3, href: "/analytics" },
+  { label: "Analytics", icon: BarChart3, href: "/analytics", badge: "Beta" },
   { label: "Integrations", icon: Plug, href: "/integrations" },
+  { label: "Settings", icon: Settings, href: "/settings" },
 ];
 
 export default function Sidebar({ user }: { user?: User | null }) {
@@ -31,25 +32,28 @@ export default function Sidebar({ user }: { user?: User | null }) {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : (user?.email?.[0]?.toUpperCase() || 'U');
   const plan = user?.subscription?.plan || 'Free';
+  const isPro = plan !== 'Free';
 
   return (
-    <aside className="flex flex-col h-full w-65 bg-slate-950 text-white shrink-0 border-r border-white/5">
+    <aside className="flex flex-col h-full w-72 bg-background border-r border-border shrink-0">
       {/* Brand */}
-      <div className="px-6 py-7 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-linear-to-br from-violet-500 to-blue-500 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-violet-500/20">
-            <Sparkles className="w-4.5 h-4.5 text-white" />
+      <div className="px-8 py-10">
+        <Link href="/dashboard" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shrink-0 shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <span className="text-lg font-bold tracking-tight">Auraflow</span>
-            <p className="text-[10px] text-slate-500 font-medium -mt-0.5">Instagram Automation</p>
+            <span className="text-xl font-bold tracking-tighter text-foreground block leading-none">Auraflow</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1 block">Automation OS</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-5 px-3 space-y-1 overflow-y-auto">
-        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest px-3 mb-3">Navigation</p>
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        <div className="px-4 pb-4">
+           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Platform</p>
+        </div>
         {appNavItems.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
@@ -57,56 +61,69 @@ export default function Sidebar({ user }: { user?: User | null }) {
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                "group flex items-center gap-4 px-4 py-3.5 rounded-2xl text-sm font-bold transition-all duration-200",
                 isActive
-                  ? "bg-white/8 text-white shadow-sm"
-                  : "text-slate-500 hover:bg-white/4 hover:text-slate-300"
+                  ? "bg-secondary text-primary shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
               )}
             >
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200",
-                  isActive
-                    ? "bg-linear-to-br from-violet-500 to-blue-500 text-white shadow-md shadow-violet-500/25"
-                    : "bg-white/6 text-slate-500 group-hover:text-slate-400 group-hover:bg-white/8"
-                )}>
-                  <item.icon className="w-4 h-4" />
-                </div>
-                {item.label}
-                {item.label === "Analytics" && (
-                  <Badge variant="purple" className="text-[10px] py-0 px-1.5 ml-1">Beta</Badge>
-                )}
+              <div className={cn(
+                "w-6 h-6 flex items-center justify-center transition-colors",
+                isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )}>
+                <item.icon className="w-5 h-5" />
               </div>
-              {isActive && <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />}
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+              {isActive && (
+                <motion.div 
+                  layoutId="sidebar-active"
+                  className="w-1.5 h-1.5 rounded-full bg-primary"
+                />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      {/* Upgrade CTA */}
-      <div className="p-3 border-t border-white/5">
-        <div className="bg-linear-to-br from-violet-600/15 to-blue-600/10 border border-violet-500/15 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-            <span className="text-[11px] font-bold text-white/90">{plan} Plan</span>
+      {/* Bottom Actions */}
+      <div className="p-4 space-y-4">
+        {!isPro && (
+          <div className="bg-primary rounded-[32px] p-6 text-white relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 mb-3">
+                <Crown className="w-4 h-4 text-white" />
+                <span className="text-xs font-bold uppercase tracking-widest">Upgrade to Pro</span>
+              </div>
+              <p className="text-sm font-medium text-white/80 mb-6 leading-snug">
+                Get AI Agents, advanced analytics & unlimited flows.
+              </p>
+              <button className="w-full h-11 text-xs font-bold rounded-full bg-white text-primary hover:bg-white/90 transition-all active:scale-95">
+                Go Unlimited
+              </button>
+            </div>
+            {/* Decorative background circle */}
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700" />
           </div>
-          <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">Upgrade to unlock AI Agents, analytics & unlimited automations.</p>
-          <button className="w-full py-2 text-[11px] font-bold rounded-lg bg-linear-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white transition-all shadow-md shadow-violet-500/20 hover:shadow-lg hover:shadow-violet-500/25 active:scale-[0.98]">
-            Upgrade to Pro
-          </button>
-        </div>
+        )}
 
-        {/* User */}
-        <div className="flex items-center gap-3 mt-3 px-2 py-2 rounded-xl hover:bg-white/4 transition-colors">
-          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-violet-500 to-blue-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white/90 truncate">{displayName}</p>
-            <p className="text-[10px] text-slate-600 truncate">{plan} plan</p>
-          </div>
-          <a href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`} className="text-slate-600 hover:text-slate-400 transition-colors" target="_blank" rel="noopener noreferrer">
-            <Settings className="w-3.5 h-3.5" />
+        <div className="pt-4 border-t border-border">
+          <a
+            href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+            className="flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-secondary transition-all group"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-secondary border border-border flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">
+               {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground truncate">{displayName}</p>
+              <p className="text-xs font-bold text-muted-foreground truncate">{plan} Plan</p>
+            </div>
+            <Settings className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors group-hover:rotate-45" />
           </a>
         </div>
       </div>

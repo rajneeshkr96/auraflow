@@ -4,13 +4,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Bell, Shield, Palette, LogOut, Trash2, Save, Check, ExternalLink } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, Input, Label, Button, Badge } from '@codeswayam/ui';
 import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { updateUserProfile } from '@/actions/user';
 
@@ -51,6 +47,17 @@ export default function SettingsClient({ user }: { user?: UserProfile | null }) 
         } else {
             toast.error(result.error || 'Failed to save');
         }
+    };
+
+    const handleSignOut = async () => {
+        const apiUrl = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+        const authUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
+        await fetch(`${apiUrl}/auth/logout`, {
+            method: 'POST',
+            credentials: 'include',
+        }).catch(() => {});
+        document.cookie = 'Authentication=; path=/; max-age=0';
+        window.location.href = `${authUrl}/login`;
     };
 
     return (
@@ -270,7 +277,7 @@ export default function SettingsClient({ user }: { user?: UserProfile | null }) 
                                         <p className="text-sm font-semibold text-slate-800">Sign Out</p>
                                         <p className="text-xs text-slate-400 mt-0.5">Sign out of your current session</p>
                                     </div>
-                                    <Button variant="outline" size="sm" className="flex items-center gap-1.5">
+                                    <Button variant="outline" size="sm" className="flex items-center gap-1.5" onClick={handleSignOut}>
                                         <LogOut className="w-3.5 h-3.5" />
                                         Sign Out
                                     </Button>

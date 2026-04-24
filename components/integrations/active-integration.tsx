@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@codeswayam/ui';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 

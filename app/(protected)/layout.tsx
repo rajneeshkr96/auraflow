@@ -11,12 +11,12 @@ const Layout = async ({ children }: Props) => {
   const user = await getUserProfile()
 
   return (
-    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden">
       <Sidebar user={user} />
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Infobar user={user} />
-        <main className="flex-1 overflow-y-auto p-8 dot-pattern">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-[1600px] mx-auto p-6 md:p-10">
             {children}
           </div>
         </main>

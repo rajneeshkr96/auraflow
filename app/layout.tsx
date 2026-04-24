@@ -1,15 +1,11 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter } from 'next/font/google';
 // Adjust path if needed
 import '@/app/globals.css';
+import { CSWProvider } from '@codeswayam/auth-client';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
+const inter = Inter({
+  variable: '--font-inter',
   subsets: ['latin'],
 });
 
@@ -25,8 +21,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+      <body className={`${inter.variable} antialiased`}>
+        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_CORE_API_URL}>
+          {children}
+        </CSWProvider>
       </body>
     </html>
   );

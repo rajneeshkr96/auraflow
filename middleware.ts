@@ -1,25 +1,30 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const AUTH_URL = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
+
 export function middleware(request: NextRequest) {
     const authCookie = request.cookies.get('Authentication')
 
-    // List of public paths that don't require auth
-    const isPublicPath = request.nextUrl.pathname === '/' ||
-        request.nextUrl.pathname.startsWith('/api/') ||
-        request.nextUrl.pathname.startsWith('/sign-in') ||
-        request.nextUrl.pathname.startsWith('/sign-up');
+    // List of protected base paths that require auth
+    const protectedPaths = ['/dashboard', '/automations', '/analytics', '/integrations', '/settings'];
+    const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
-    // If going to dashboard but not authenticated, send to central login
-    if (!authCookie && !isPublicPath) {
-        const loginUrl = new URL('http://localhost:3003/login');
+    // If authenticated user tries to visit home page or local auth pages, redirect to dashboard
+    if (authCookie && (request.nextUrl.pathname === '/' || request.nextUrl.pathname.startsWith('/sign-in') || request.nextUrl.pathname.startsWith('/sign-up'))) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    // If going to a protected route but not authenticated, send to central login
+    if (!authCookie && isProtectedPath) {
+        const loginUrl = new URL(`${AUTH_URL}/login`);
         loginUrl.searchParams.set('redirect', request.url);
         return NextResponse.redirect(loginUrl);
     }
 
-    // If going to local sign-in/up page, immediately redirect to central Auth
-    if (request.nextUrl.pathname.startsWith('/sign-in') || request.nextUrl.pathname.startsWith('/sign-up')) {
-        const target = authCookie ? `${request.nextUrl.origin}/dashboard` : `http://localhost:3003/login?redirect=${request.nextUrl.origin}/dashboard`;
+    // If going to local sign-in/up page (and NOT authenticated), immediately redirect to central Auth
+    if (!authCookie && (request.nextUrl.pathname.startsWith('/sign-in') || request.nextUrl.pathname.startsWith('/sign-up'))) {
+        const target = `${AUTH_URL}/login?redirect=${encodeURIComponent(`${request.nextUrl.origin}/dashboard`)}`;
         return NextResponse.redirect(target);
     }
 

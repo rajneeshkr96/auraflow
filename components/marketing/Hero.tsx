@@ -1,147 +1,153 @@
-
 "use client";
-
 import React from 'react';
-import { ArrowRight, Star, MessageSquare, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ArrowRight, Star, MessageSquare, Zap, Bot, ChevronRight, Globe, Shield, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 
 const Hero: React.FC = () => {
   return (
-    <section className="relative pt-40 pb-20 px-6 overflow-hidden">
-      {/* Decorative Icons */}
-      <div className="absolute top-[15%] left-[8%] hidden lg:block pointer-events-none opacity-20">
-        <motion.svg
-          initial={{ opacity: 0, rotate: -90 }}
-          animate={{ opacity: 1, rotate: 0 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          width="140" height="140" viewBox="0 0 100 100" fill="none" className="text-indigo-600">
-          <circle cx="50" cy="50" r="1.5" fill="currentColor" />
-          {[...Array(12)].map((_, i) => (
-            <line key={i} x1="50" y1="50" x2={50 + 40 * Math.cos((i * 30 * Math.PI) / 180)} y2={50 + 40 * Math.sin((i * 30 * Math.PI) / 180)} stroke="currentColor" strokeWidth="1.5" />
-          ))}
-        </motion.svg>
-      </div>
-
-      <div className="max-w-4xl mx-auto text-center relative z-10">
+    <section className="relative pt-44 pb-24 px-6 bg-background overflow-hidden">
+      {/* Background elements inspired by UnboundX */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 blur-[120px] rounded-full pointer-events-none" />
+      
+      <div className="max-w-6xl mx-auto text-center relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-slate-600 text-xs font-bold mb-8"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary border border-border text-foreground text-xs font-bold mb-10 shadow-sm"
         >
-          <span className="flex h-2 w-2 rounded-full bg-pink-500 animate-pulse" />
-          INSTAGRAM AUTOMATION FOR CREATORS
+          <Sparkles className="w-3.5 h-3.5 text-primary" />
+          <span className="tracking-widest uppercase">The future of social growth</span>
         </motion.div>
 
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-5xl md:text-8xl font-extrabold tracking-tight leading-[1.05] mb-8 text-slate-900"
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-6xl md:text-8xl font-bold tracking-tighter leading-[0.95] mb-8 text-foreground"
         >
-          Turn Every Comment <br />
-          <span className="italic font-serif font-light text-slate-400">Into a Customer</span>
+          Automate growth. <br />
+          <span className="text-muted-foreground">Without the grind.</span>
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-medium"
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-muted-foreground text-xl md:text-2xl max-w-2xl mx-auto mb-12 leading-tight font-medium"
         >
-          Automate your Instagram DMs and comments with keyword triggers and AI Closer Agents. Capture leads 24/7 without lifting a finger.
+          Auraflow helps creators and brands scale their Instagram engagement 
+          using next-gen AI agents that close deals while you sleep.
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-col sm:flex-row items-center gap-4 justify-center"
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="flex flex-col sm:flex-row items-center gap-6 justify-center"
         >
-          <button className="px-8 py-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-full transition-all flex items-center gap-2 shadow-xl shadow-slate-900/20 group">
-            Start Your Free Trial
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-          <button className="px-8 py-4 bg-white border border-slate-200 text-slate-900 font-bold rounded-full hover:bg-slate-50 transition-all">
-            See it in Action
+          <Link href="/signup" className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
+            Start growing now
+            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+          </Link>
+          <button className="h-16 px-10 bg-white border border-border text-foreground font-bold rounded-full hover:bg-secondary transition-all flex items-center gap-2 text-lg">
+            Watch Demo
           </button>
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="mt-8 flex items-center justify-center gap-2 text-slate-400 text-xs font-semibold"
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-muted-foreground text-sm font-bold opacity-60"
         >
-          <div className="flex text-amber-400">
-            {[...Array(5)].map((_, i) => <Star key={i} className="w-3 h-3 fill-current" />)}
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4" /> Global Scale
           </div>
-          4,000+ AUTOMATIONS RUNNING DAILY
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4" /> Secure API
+          </div>
+          <div className="flex items-center gap-2 text-amber-500">
+            <Star className="w-4 h-4 fill-current" /> 4.9/5 Rating
+          </div>
         </motion.div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.5, type: "spring", bounce: 0.3 }}
-        className="max-w-6xl mx-auto mt-20 relative"
-      >
-        <div className="bento-card p-4 aspect-video overflow-hidden group">
-          <div className="w-full h-full rounded-2xl bg-white border border-slate-100 flex flex-col shadow-inner">
-            <div className="h-12 border-b border-slate-100 flex items-center px-4 gap-2 bg-slate-50/50">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-slate-300" />
-                <div className="w-3 h-3 rounded-full bg-slate-300" />
-                <div className="w-3 h-3 rounded-full bg-slate-300" />
-              </div>
-              <div className="mx-auto bg-white border border-slate-200 px-3 py-1 rounded-md text-[10px] text-slate-400 font-bold">
-                auraflow.io/dashboard/automations
-              </div>
-            </div>
-            <div className="flex-1 p-8 grid grid-cols-12 gap-6 bg-white">
-              <div className="col-span-8 space-y-6">
-                <div className="relative aspect-video rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden flex flex-col p-6">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="p-3 bg-pink-500 rounded-2xl text-white shadow-lg">
-                      <MessageSquare className="w-5 h-5" />
+      {/* Floating Visual Elements - UnboundX Style */}
+      <div className="relative max-w-7xl mx-auto mt-24">
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.4, type: "spring", damping: 20 }}
+          className="relative z-0 group"
+        >
+          {/* Main Visual: Bento-styled Card Stack */}
+          <div className="relative rounded-[48px] border border-border/50 bg-white shadow-[0_32px_80px_rgba(0,0,0,0.06)] overflow-hidden">
+            <div className="aspect-[21/9] bg-gradient-to-br from-secondary via-white to-secondary/30 flex items-center justify-center p-12">
+               {/* Mock Dashboard Representation */}
+               <div className="w-full h-full rounded-[32px] border border-border bg-white p-8 flex flex-col gap-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                        <Bot className="w-6 h-6 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-lg">AI Closer Agent #42</div>
+                        <div className="text-sm text-muted-foreground">Active and monitoring comments</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-black text-slate-900">TRIGGER: Keyword "GROWTH"</div>
-                      <div className="text-[10px] text-slate-400 font-bold">Listens to: All Posts</div>
+                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-100">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      LIVE
                     </div>
                   </div>
-                  <div className="ml-6 border-l-2 border-slate-100 pl-8 space-y-4">
-                    <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm flex items-center gap-4">
-                      <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg"><Zap className="w-4 h-4" /></div>
-                      <div className="text-[10px] font-bold text-slate-600">Action: AI Closer Agent Takes Over</div>
-                    </div>
-                    <div className="p-4 bg-indigo-600 rounded-2xl shadow-xl flex items-center gap-4">
-                      <div className="p-2 bg-white/20 text-white rounded-lg"><Zap className="w-4 h-4" /></div>
-                      <div className="text-[10px] font-black text-white">Action: Send Link to eBook</div>
-                    </div>
+                  <div className="grid grid-cols-3 gap-6 flex-1">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="rounded-3xl border border-border bg-secondary/20 p-6 flex flex-col justify-between">
+                        <div className="w-10 h-10 rounded-xl bg-white border border-border flex items-center justify-center">
+                           {i === 1 ? <Zap className="w-5 h-5 text-primary" /> : i === 2 ? <MessageSquare className="w-5 h-5 text-primary" /> : <Star className="w-5 h-5 text-primary" />}
+                        </div>
+                        <div>
+                          <div className="text-3xl font-bold tracking-tighter">{i === 1 ? '14.2k' : i === 2 ? '892' : '98.2%'}</div>
+                          <div className="text-sm text-muted-foreground font-bold">{i === 1 ? 'Engagement' : i === 2 ? 'Leads' : 'Satisfaction'}</div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              </div>
-              <div className="col-span-4 h-full rounded-3xl bg-slate-50 border border-slate-100 p-6 space-y-6">
-                <div className="space-y-4">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Leads</div>
-                  {[
-                    { name: '@alex_creatives', status: 'Closing' },
-                    { name: '@fitness_daily', status: 'Qualified' },
-                    { name: '@tech_reviews', status: 'Inquiry' }
-                  ].map((lead, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
-                      <div className="text-[10px] font-bold text-slate-700">{lead.name}</div>
-                      <div className="text-[8px] font-black px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full uppercase">{lead.status}</div>
-                    </div>
-                  ))}
-                </div>
-                <button className="w-full py-3 bg-slate-900 text-white text-[10px] font-black rounded-xl">CREATE AUTOMATION</button>
-              </div>
+               </div>
             </div>
           </div>
-        </div>
-      </motion.div>
+
+          {/* Floating Decorative Elements */}
+          <motion.div 
+            animate={{ y: [0, -20, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute -top-12 -left-12 w-48 h-48 rounded-[40px] bg-white border border-border shadow-2xl p-6 hidden lg:flex flex-col justify-between"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold">89%</div>
+              <div className="text-xs text-muted-foreground font-bold">Reply Rate</div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            animate={{ y: [0, 20, 0] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+            className="absolute -bottom-12 -right-12 w-56 h-32 rounded-[40px] bg-white border border-border shadow-2xl p-6 hidden lg:flex flex-col justify-center gap-2"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <div className="text-sm font-bold">Conversion up</div>
+            </div>
+            <div className="text-3xl font-bold tracking-tighter">+245%</div>
+          </motion.div>
+        </motion.div>
+      </div>
     </section>
   );
 };

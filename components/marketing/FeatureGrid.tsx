@@ -1,104 +1,143 @@
-
+"use client";
 import React from 'react';
-import { MousePointer2, Settings, Zap, Layout, Bot, Instagram, MessageSquare, ArrowRight, Target, Inbox } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Zap, Bot, Target, Layout, Inbox, ArrowRight, MessageSquare, Instagram, Sparkles, CheckCircle2, TrendingUp, Cpu, Globe, Lock } from 'lucide-react';
 
 const FeatureGrid: React.FC = () => {
   return (
-    <section id="features" className="py-24 px-6 bg-slate-50/50">
-      <div className="max-w-7xl mx-auto space-y-24">
-        {/* Section 1: Automation Builder */}
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
-              A Visual Builder <br />
-              <span className="text-indigo-600">that just works.</span>
-            </h2>
-            <p className="text-slate-500 text-lg font-medium leading-relaxed">
-              Design complex customer journeys with our intuitive drag-and-drop canvas. Listen for keywords like "PRICE" or "LINK" and let Auraflow handle the rest.
+    <section id="features" className="py-32 px-6 bg-background">
+      <div className="max-w-7xl mx-auto">
+        {/* Section Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-left mb-20"
+        >
+          <h2 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-6">
+            Engineered for <br />
+            <span className="text-muted-foreground">unstoppable growth.</span>
+          </h2>
+          <p className="text-muted-foreground text-xl max-w-2xl font-medium">
+            Next-gen automation tools designed to handle every aspect of your 
+            social media sales funnel.
+          </p>
+        </motion.div>
+
+        {/* Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[240px]">
+          {/* Main Feature - Large Bento Card */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="md:col-span-8 md:row-span-2 rounded-[48px] bg-white border border-border p-10 flex flex-col justify-between group overflow-hidden relative"
+          >
+            <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none" />
+            <div className="relative z-10">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-8 group-hover:scale-110 transition-transform">
+                <Cpu className="w-7 h-7 text-primary" />
+              </div>
+              <h3 className="text-4xl font-bold tracking-tighter mb-4">Neural Automation <br/>Engine</h3>
+              <p className="text-muted-foreground text-lg max-w-md font-medium">
+                Our core engine uses advanced LLMs to understand intent, tone, and context in every comment and DM.
+              </p>
+            </div>
+            <div className="mt-auto flex items-center gap-4 relative z-10">
+              <div className="flex -space-x-3">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-secondary flex items-center justify-center text-[10px] font-bold">
+                    User{i}
+                  </div>
+                ))}
+              </div>
+              <div className="text-sm font-bold text-foreground">Join 4,000+ top creators</div>
+            </div>
+          </motion.div>
+
+          {/* Side Card 1 */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="md:col-span-4 md:row-span-1 rounded-[48px] bg-foreground text-background p-10 flex flex-col justify-between group"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
+              <Zap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold tracking-tighter">Real-time Triggers</h3>
+              <div className="text-white/60 text-sm font-medium mt-1">Instant responses, 24/7.</div>
+            </div>
+          </motion.div>
+
+          {/* Side Card 2 */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="md:col-span-4 md:row-span-1 rounded-[48px] bg-secondary border border-border p-10 flex flex-col justify-between group"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-white border border-border flex items-center justify-center">
+              <Globe className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold tracking-tighter">Global Reach</h3>
+              <div className="text-muted-foreground text-sm font-medium mt-1">Scale across all regions.</div>
+            </div>
+          </motion.div>
+
+          {/* Bottom Card 1 */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="md:col-span-4 md:row-span-2 rounded-[48px] bg-secondary border border-border p-10 flex flex-col group overflow-hidden"
+          >
+            <div className="w-14 h-14 rounded-2xl bg-white border border-border flex items-center justify-center mb-8">
+              <Bot className="w-7 h-7 text-primary" />
+            </div>
+            <h3 className="text-3xl font-bold tracking-tighter mb-4">AI Closer Agents</h3>
+            <p className="text-muted-foreground font-medium mb-6">
+              Full conversation management that qualifies leads and delivers checkouts.
             </p>
-            <div className="grid sm:grid-cols-2 gap-4">
-               {[
-                 { title: 'Keyword Triggers', desc: 'Exact, Contains, or Regex', icon: <Target className="w-3 h-3" /> },
-                 { title: 'Closer Agents', desc: 'AI that closes sales', icon: <Bot className="w-3 h-3" /> },
-                 { title: 'Inbox Routing', desc: 'Direct to Primary Inbox', icon: <Inbox className="w-3 h-3" /> },
-                 { title: 'Post Filtering', desc: 'Apply to specific posts', icon: <Layout className="w-3 h-3" /> }
-               ].map((item, i) => (
-                 <div key={i} className="flex gap-3">
-                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 mt-1 flex-shrink-0">
-                      {item.icon}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
-                      <p className="text-slate-400 text-xs">{item.desc}</p>
-                    </div>
-                 </div>
+            <div className="mt-auto pt-6 border-t border-border">
+              <div className="flex items-center justify-between text-sm font-bold">
+                <span>Conversion Rate</span>
+                <span className="text-primary">+34.2%</span>
+              </div>
+              <div className="w-full bg-border h-1.5 rounded-full mt-2 overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  whileInView={{ width: '70%' }}
+                  className="bg-primary h-full" 
+                />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Bottom Card 2 - Wide */}
+          <motion.div 
+            whileHover={{ y: -5 }}
+            className="md:col-span-8 md:row-span-2 rounded-[48px] bg-white border border-border p-10 flex flex-col justify-between group"
+          >
+            <div className="flex justify-between items-start">
+               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="w-7 h-7 text-primary" />
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Live Analytics</div>
+                <div className="text-2xl font-bold">128.4k</div>
+              </div>
+            </div>
+            <div className="flex-1 flex items-end gap-2 px-4">
+               {[40, 70, 45, 90, 65, 80, 50, 100, 85, 95].map((h, i) => (
+                 <motion.div 
+                  key={i}
+                  initial={{ height: 0 }}
+                  whileInView={{ height: `${h}%` }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex-1 bg-primary/20 rounded-t-lg group-hover:bg-primary/40 transition-colors"
+                 />
                ))}
             </div>
-          </div>
-          
-          <div className="bento-card bg-slate-950 p-8 h-[450px] relative overflow-hidden flex flex-col justify-center border-slate-800">
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent" />
-            <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6 backdrop-blur-md">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-pink-500 flex items-center justify-center">
-                  <Instagram className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-[10px] font-black text-white">NEW COMMENT ON POST #42</div>
-                  <div className="text-[10px] text-slate-400">@user: "Interested in the eBook!"</div>
-                </div>
-              </div>
-              <div className="pl-6 border-l border-white/10 space-y-4">
-                 <div className="p-3 bg-white/5 border border-white/5 rounded-xl text-[10px] text-slate-300">
-                   <span className="text-indigo-400 font-bold">Bot:</span> "Hey! Just sent you a DM with the download link. Check your inbox! 🚀"
-                 </div>
-                 <div className="p-3 bg-indigo-600 rounded-xl text-[10px] text-white font-bold animate-pulse">
-                   Triggering DM Sequence: [Lead Magnet Flow]
-                 </div>
-              </div>
+            <div className="pt-8">
+              <h3 className="text-3xl font-bold tracking-tighter mb-2">Growth Tracking</h3>
+              <p className="text-muted-foreground font-medium">Watch your engagement and revenue climb in real-time.</p>
             </div>
-          </div>
-        </div>
-
-        {/* Section 2: AI Agents */}
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="order-2 lg:order-1 bento-card p-4 aspect-square max-h-[500px] overflow-hidden bg-white">
-             <div className="w-full h-full bg-slate-50 rounded-3xl border border-slate-200 p-8 flex flex-col gap-6 shadow-xl">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Agent Configuration</span>
-                  <Bot className="w-4 h-4 text-indigo-600" />
-                </div>
-                <div className="space-y-4">
-                  <div className="p-4 bg-white border border-slate-200 rounded-2xl">
-                    <div className="text-[10px] font-black mb-2">Agent Role: Closer</div>
-                    <div className="text-[10px] text-slate-500 italic">"You are a helpful assistant for a SaaS owner. Your goal is to qualify leads and send them to the Stripe checkout page."</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-indigo-600 rounded-2xl text-white">
-                       <div className="text-[8px] font-black opacity-60">Status</div>
-                       <div className="text-[10px] font-black">AI Active</div>
-                    </div>
-                    <div className="p-4 bg-slate-900 rounded-2xl text-white">
-                       <div className="text-[8px] font-black opacity-60">Version</div>
-                       <div className="text-[10px] font-black">v2.1 (Clerk)</div>
-                    </div>
-                  </div>
-                </div>
-             </div>
-          </div>
-          <div className="order-1 lg:order-2 space-y-6">
-            <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">
-              Smart AI Agents <br />
-              <span className="text-purple-600">trained on your voice.</span>
-            </h2>
-            <p className="text-slate-500 text-lg font-medium leading-relaxed">
-              Auraflow's Closer Agents handle full conversations. They are context-aware, retain conversation history, and are designed to convert followers into paying customers.
-            </p>
-            <button className="px-6 py-3 border border-slate-200 hover:bg-slate-100 rounded-full text-sm font-bold text-slate-600 transition-all flex items-center gap-2 group">
-              Meet Your New Sales Team
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>
