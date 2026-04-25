@@ -322,7 +322,7 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                                             className="data-[state=checked]:bg-primary"
                                         />
                                     </div>
-                                    {selectedNode.data.sendDm && (
+                                    {!!selectedNode.data.sendDm && (
                                         <Textarea
                                             rows={4}
                                             placeholder="DM message for new leads..."

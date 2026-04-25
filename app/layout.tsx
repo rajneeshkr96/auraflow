@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 // Adjust path if needed
 import '@/app/globals.css';
-import { CSWProvider } from '@codeswayam/auth-client';
+import { CSWProvider } from '@codeswayam/auth';
 
 const inter = Inter({
   variable: '--font-inter',
