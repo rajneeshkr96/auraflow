@@ -33,9 +33,9 @@
     "react-dom": "19.2.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
-    "@codeswayam/ui": "^1.0.1",
-    "@codeswayam/auth": "^2.0.1",
-    "@codeswayam/api-client": "^1.0.1"
+    "@codeswayam/ui": "*",
+    "@codeswayam/auth": "*",
+    "@codeswayam/api-client": "*"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
