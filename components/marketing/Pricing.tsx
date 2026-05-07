@@ -67,7 +67,7 @@ const Pricing: React.FC = () => {
     const [loading, setLoading] = useState(true);
 
     const AUTH_URL = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
-    const CORE_API = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+    const CORE_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
     useEffect(() => {
         async function loadPlans() {

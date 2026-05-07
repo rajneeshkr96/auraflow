@@ -50,7 +50,7 @@ export default function SettingsClient({ user }: { user?: UserProfile | null }) 
     };
 
     const handleSignOut = async () => {
-        const apiUrl = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
         const authUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
         await fetch(`${apiUrl}/auth/logout`, {
             method: 'POST',

@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_CORE_API_URL}>
+        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_API_URL} authDomain={process.env.NEXT_PUBLIC_SSO_URL?.replace('/sso', '')}>
           {children}
         </CSWProvider>
       </body>

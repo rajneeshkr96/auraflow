@@ -1,11 +1,11 @@
 'use server'
- 
+
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { sdk } from '@codeswayam/api-client'
 
 const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
-const CORE_API = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+const CORE_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 async function getAuthCookie() {
     const cookieStore = await cookies();
@@ -30,10 +30,10 @@ export const onAuthenticatedUser = async () => {
     try {
         const authOptions = getAuthorizedSDK(authCookie.value);
         const fullProfile = await sdk.getFullProfile(authOptions);
-        
+
         // Fetch integrations from Aura API (port 3005)
-        const integrations = await getUserIntegrations(); 
-        
+        const integrations = await getUserIntegrations();
+
         return {
             ...fullProfile.profile,
             subscriptions: fullProfile.subscriptions,

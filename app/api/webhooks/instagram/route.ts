@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const response = await axios.get(`${AURA_API}/webhooks/instagram`, {
       params: Object.fromEntries(searchParams.entries())
     });
-    return new NextResponse(response.data, { status: 200 });
+    return new NextResponse(String(response.data), { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ error: error?.response?.data || 'Forbidden' }, { status: error?.response?.status || 403 })
   }

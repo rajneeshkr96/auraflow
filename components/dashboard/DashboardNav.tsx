@@ -4,7 +4,7 @@ import { LayoutGrid, LogOut } from 'lucide-react';
 import Link from 'next/link';
 
 const AUTH_URL = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
-const API_URL = process.env.NEXT_PUBLIC_CORE_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function DashboardNav() {
     const handleLogout = async () => {
