@@ -8,27 +8,37 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const client_id = process.env.INSTAGRAM_CLIENT_ID
+  // INSTAGRAM_APP_CLIENT_ID = the Instagram App ID (from "API setup with Instagram login")
+  // INSTAGRAM_CLIENT_ID     = the Facebook App ID (from "API setup with Facebook login")
+  // Use whichever flow your Meta app is configured for.
+  const client_id = process.env.INSTAGRAM_APP_CLIENT_ID || process.env.INSTAGRAM_CLIENT_ID
   const redirect_uri = process.env.INSTAGRAM_REDIRECT_URI
 
   if (!client_id || !redirect_uri) {
     return NextResponse.json({ error: 'Instagram config missing' }, { status: 500 })
   }
 
-  // Construct the Instagram OAuth URL
-  // Scopes: instagram_basic, instagram_manage_messages, instagram_manage_comments, pages_show_list, pages_manage_metadata (via Facebook Login for Business usually)
-  // PRD says "Instagram Graph API". Usually requires Facebook Login.
-  // We'll use common scopes for automation.
+  // Detect which OAuth flow to use based on which client ID env var is set.
+  // "API setup with Instagram login" → instagram.com/oauth/authorize
+  // "API setup with Facebook login"  → facebook.com/dialog/oauth
+  const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID
 
-  const scopes = [
-    'instagram_basic',
-    'instagram_manage_comments',
-    'instagram_manage_messages',
-    'pages_show_list',
-    'pages_read_engagement',
-    'pages_manage_metadata',
-    'pages_read_user_content'
-  ].join(',')
+  const scopes = useInstagramLogin
+    ? [
+        'instagram_business_basic',
+        'instagram_business_manage_messages',
+        'instagram_business_manage_comments',
+        'instagram_business_content_publish',
+      ].join(',')
+    : [
+        'instagram_basic',
+        'instagram_manage_comments',
+        'instagram_manage_messages',
+        'pages_show_list',
+        'pages_read_engagement',
+        'pages_manage_metadata',
+        'pages_read_user_content',
+      ].join(',')
 
   const params = new URLSearchParams({
     client_id,
@@ -38,7 +48,9 @@ export async function GET() {
     response_type: 'code',
   })
 
-  const url = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`
+  const baseUrl = useInstagramLogin
+    ? 'https://www.instagram.com/oauth/authorize'
+    : 'https://www.facebook.com/v21.0/dialog/oauth'
 
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(`${baseUrl}?${params.toString()}`)
 }
