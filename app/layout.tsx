@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-// Adjust path if needed
 import '@/app/globals.css';
 import { CSWProvider } from '@codeswayam/auth';
+import { Analytics } from '@codeswayam/analytics';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -22,7 +22,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_API_URL} authDomain={process.env.NEXT_PUBLIC_SSO_URL?.replace('/sso', '')}>
+        <Analytics
+          gtmId={process.env.NEXT_PUBLIC_GTM_ID}
+          ga4Id={process.env.NEXT_PUBLIC_GA4_ID}
+          metaPixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID}
+          appName="auraflow"
+        />
+        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_API_URL} ssoUrl={process.env.NEXT_PUBLIC_APP_AUTH_URL}>
           {children}
         </CSWProvider>
       </body>

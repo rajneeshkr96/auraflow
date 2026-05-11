@@ -1,11 +1,13 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Zap, Plug, BarChart3, Settings,
   Sparkles, ChevronRight, Crown
 } from "lucide-react";
+import { useCSWSubscriptions } from "@codeswayam/auth";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -26,13 +28,24 @@ const appNavItems = [
 
 export default function Sidebar({ user }: { user?: User | null }) {
   const pathname = usePathname();
+  const { subscriptions } = useCSWSubscriptions();
+  const [subscriptionUrl, setSubscriptionUrl] = useState("");
+
+  useEffect(() => {
+    const returnUrl = encodeURIComponent(`${window.location.origin}/dashboard`);
+    setSubscriptionUrl(`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/account/subscriptions?returnUrl=${returnUrl}`);
+  }, []);
 
   const displayName = user?.name || user?.email?.split('@')[0] || 'My Account';
   const initials = user?.name
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : (user?.email?.[0]?.toUpperCase() || 'U');
-  const plan = user?.subscription?.plan || 'Free';
-  const isPro = plan !== 'Free';
+
+  const activeSub = subscriptions.find(
+    (s) => s.status === 'active' && (s.productSaasId === 'auraflow' || s.planType === 'BUNDLE')
+  );
+  const plan = activeSub ? (activeSub.productName || activeSub.bundleName || 'Pro') : 'Free';
+  const isPro = !!activeSub;
 
   return (
     <aside className="flex flex-col h-full w-72 bg-background border-r border-border shrink-0">
@@ -102,9 +115,12 @@ export default function Sidebar({ user }: { user?: User | null }) {
               <p className="text-sm font-medium text-white/80 mb-6 leading-snug">
                 Get AI Agents, advanced analytics & unlimited flows.
               </p>
-              <button className="w-full h-11 text-xs font-bold rounded-full bg-white text-primary hover:bg-white/90 transition-all active:scale-95">
+              <a 
+                href={subscriptionUrl}
+                className="w-full h-11 text-xs font-bold rounded-full bg-white text-primary hover:bg-white/90 transition-all active:scale-95 flex items-center justify-center"
+              >
                 Go Unlimited
-              </button>
+              </a>
             </div>
             {/* Decorative background circle */}
             <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-150 transition-transform duration-700" />

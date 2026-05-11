@@ -24,24 +24,46 @@ type Currency = 'INR' | 'USD';
 const FALLBACK_PLANS: PricingPlan[] = [
     {
         id: -1,
-        saasId: 'auraflow-starter',
-        name: 'Starter',
-        description: 'For creators just beginning.',
+        saasId: 'auraflow_free',
+        name: 'AuraFlow Free',
+        description: 'Free plan for creators starting with Instagram DM automation.',
         planTier: 'free',
         isFreeTier: true,
         pricing: { INR: { monthly: 0, yearly: 0 }, USD: { monthly: 0, yearly: 0 } },
-        features: ['Unlimited Automations', 'Keyword Triggers', 'Comment Listening', 'Community Support'],
+        features: ['1 Instagram account', '5 automated post workflows', 'Basic DM automation', 'Keyword Triggers', 'Community Support'],
         type: 'single',
     },
     {
         id: -2,
-        saasId: 'auraflow-pro',
-        name: 'Pro AI',
-        description: 'Advanced growth for serious brands.',
+        saasId: 'auraflow_standard',
+        name: 'AuraFlow Standard',
+        description: 'Perfect for influencers and content creators who want unlimited Instagram DM and engagement automation.',
+        planTier: 'standard',
+        isFreeTier: false,
+        pricing: { INR: { monthly: 59900, yearly: 599900 }, USD: { monthly: 900, yearly: 9000 } },
+        features: ['1 Instagram account', 'Unlimited DM automation', 'Unlimited post automation', 'Advanced Analytics', 'Priority Support'],
+        type: 'single',
+    },
+    {
+        id: -3,
+        saasId: 'auraflow_pro',
+        name: 'AuraFlow Pro',
+        description: 'Unlimited projects, Real-time collaboration, 4K exports, Priority email support.',
         planTier: 'pro',
         isFreeTier: false,
-        pricing: { INR: { monthly: 4900, yearly: 3900 * 12 }, USD: { monthly: 4900, yearly: 3900 * 12 } },
-        features: ['Everything in Starter', 'AI Closer Agents', '7-Day History', 'Advanced Analytics', 'Priority Support'],
+        pricing: { INR: { monthly: 199900, yearly: 1999900 }, USD: { monthly: 2900, yearly: 29000 } },
+        features: ['1 Instagram account', 'Unlimited DM automation', 'Unlimited post automation', 'AI Closer Agents', '10 GB cloud storage', 'Priority Support'],
+        type: 'single',
+    },
+    {
+        id: -4,
+        saasId: 'auraflow_enterprise',
+        name: 'AuraFlow Enterprise',
+        description: 'Built for agencies and social media managers handling multiple Instagram brands and clients.',
+        planTier: 'enterprise',
+        isFreeTier: false,
+        pricing: { INR: { monthly: 999900, yearly: 9999900 }, USD: { monthly: 14900, yearly: 149000 } },
+        features: ['Multiple Instagram accounts', 'Unlimited DM automation', 'Unlimited post automation', 'Dedicated account manager', 'Custom integrations', 'SLA support'],
         type: 'single',
     },
 ];
@@ -75,9 +97,11 @@ const Pricing: React.FC = () => {
                 const res = await fetch(`${CORE_API}/subscriptions/plans`);
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
-                if (data.products) {
-                    const auraflowPlans = data.products.filter((p: any) => p.tag === 'auraflow');
-                    setPlans([...auraflowPlans, ...data.bundles]);
+                if (data.products?.length) {
+                    const auraflowPlans = data.products.filter((p: any) =>
+                        p.tag === 'auraflow' || p.productFamily === 'auraflow'
+                    );
+                    if (auraflowPlans.length) setPlans(auraflowPlans);
                 }
             } catch {
             } finally {
@@ -88,7 +112,8 @@ const Pricing: React.FC = () => {
     }, [CORE_API]);
 
     const handleSubscribeClick = (plan: PricingPlan) => {
-        const subscribeUrl = `${AUTH_URL}/profile/subscription?planId=${plan.id}&billingCycle=${billingCycle}&currency=${currency}`;
+        const param = plan.type === 'bundle' ? 'bundleId' : 'saasProductId';
+        const subscribeUrl = `${AUTH_URL}/profile/subscription?${param}=${plan.id}&billingCycle=${billingCycle}&currency=${currency}`;
         window.open(subscribeUrl, '_blank');
     };
 
@@ -151,7 +176,7 @@ const Pricing: React.FC = () => {
                             const displayPrice = billingCycle === 'yearly' && rawPrice > 0
                                 ? formatPrice(Math.round(rawPrice / 12), currency)
                                 : formatPrice(rawPrice, currency);
-                            const isPopular = plan.planTier === 'pro' || (i === 1 && plans.length > 1);
+                            const isPopular = plan.planTier === 'pro';
                             const isFree = rawPrice === 0;
 
                             return (

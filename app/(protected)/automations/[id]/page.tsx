@@ -30,10 +30,10 @@ const Page = async ({ params }: Props) => {
   }
 
   // Determine if this is a fresh automation with no triggers/actions yet
-  const isNew = !automation.trigger || automation.trigger.length === 0;
+  const isNew = !automation.triggers || automation.triggers.length === 0;
 
-  const hasDm = automation.trigger?.some((t: any) => t.type === 'DM');
-  const hasComment = automation.trigger?.some((t: any) => t.type === 'COMMENT');
+  const hasDm = automation.triggers?.some((t: any) => t.type === 'DM');
+  const hasComment = automation.triggers?.some((t: any) => t.type === 'COMMENT');
   const isAI = automation.listener?.listener === 'SMART_AI';
 
   return (

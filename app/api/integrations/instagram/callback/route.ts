@@ -1,151 +1,137 @@
-import { NextResponse } from 'next/server'
-import axios from 'axios'
-import { cookies } from 'next/headers'
-import { revalidatePath } from 'next/cache'
+import { NextResponse } from "next/server";
+import axios from "axios";
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { prisma } from "@/lib/db";
+import * as jwt from "jsonwebtoken";
+
+async function getUserIdFromCookie(): Promise<number | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("Authentication")?.value;
+  if (!token) return null;
+  try {
+    const decoded = jwt.decode(token) as { sub?: string } | null;
+    if (!decoded?.sub) return null;
+    const parsed = parseInt(decoded.sub);
+    return isNaN(parsed) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(req: Request) {
-    // Need to handle the callback
-    const { searchParams } = new URL(req.url)
-    const code = searchParams.get('code')
-    const state = searchParams.get('state') // Should be userId
+  const { searchParams } = new URL(req.url);
+  const code = searchParams.get("code");
+  const state = searchParams.get("state");
 
-    if (!code || !state) {
-        return NextResponse.json({ error: 'Missing code or state' }, { status: 400 })
+  if (!code) {
+    return NextResponse.json({ error: "Missing code" }, { status: 400 });
+  }
+
+  try {
+    // ── 1. Get current user from JWT cookie ──────────────────────────
+    let userId: number | null = await getUserIdFromCookie();
+
+    // Fallback: state param carries userId (set during install redirect)
+    if (!userId && state) {
+      const parsed = parseInt(state);
+      if (!isNaN(parsed)) userId = parsed;
     }
 
-    try {
-        const client_id = process.env.INSTAGRAM_CLIENT_ID
-        const client_secret = process.env.INSTAGRAM_CLIENT_SECRET
-        const redirect_uri = process.env.INSTAGRAM_REDIRECT_URI
+    if (!userId) {
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=unauthorized`);
+    }
 
-        // Exchange code for token
-        const tokenResponse = await axios.get(`https://graph.facebook.com/v21.0/oauth/access_token`, {
-            params: {
-                client_id,
-                redirect_uri,
-                client_secret,
-                code
-            }
-        })
+    // ── 2. Exchange code for access token ────────────────────────────
+    const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
+      params: {
+        client_id: process.env.INSTAGRAM_CLIENT_ID,
+        redirect_uri: process.env.INSTAGRAM_REDIRECT_URI,
+        client_secret: process.env.INSTAGRAM_CLIENT_SECRET,
+        code,
+      },
+    });
 
-        const accessToken = tokenResponse.data.access_token
+    const accessToken: string = tokenResponse.data.access_token;
 
-        // Check Permissions
-        const permissionsResponse = await axios.get(`https://graph.facebook.com/v21.0/me/permissions`, {
-            params: { access_token: accessToken }
-        })
-        console.log('Granted Permissions:', JSON.stringify(permissionsResponse.data.data, null, 2))
+    // ── 3. Get connected Instagram Business Account ──────────────────
+    const pagesResponse = await axios.get("https://graph.facebook.com/v21.0/me/accounts", {
+      params: {
+        fields: "id,name,instagram_business_account,access_token",
+        access_token: accessToken,
+      },
+    });
 
-        // Get User Pages to find connected Instagram Account
-        const pagesResponse = await axios.get(`https://graph.facebook.com/v21.0/me/accounts`, {
-            params: {
-                fields: 'id,name,instagram_business_account,access_token', // Added access_token
-                access_token: accessToken
-            }
-        })
+    const pages: any[] = pagesResponse.data.data ?? [];
+    let instagramId: string | null = null;
+    let pageAccessToken: string | null = null;
+    let pageId: string | null = null;
 
-        const pages = pagesResponse.data.data
-        console.log('Fetched Pages:', JSON.stringify(pages, null, 2))
-
-        let instagramId = null;
-        let pageAccessToken = null;
-        let pageId = null;
-
-        // Strategy 1: Check if field is present in the list
-        const pageWithInstagram = pages.find((page: any) => page.instagram_business_account)
-        if (pageWithInstagram) {
-            instagramId = pageWithInstagram.instagram_business_account.id
-            pageAccessToken = pageWithInstagram.access_token
-            pageId = pageWithInstagram.id
-            console.log('Strategy 1 Success: Found in list.', instagramId)
-        } else {
-            // Strategy 2: If missing, try fetching specifically using Page Token
-            // Sometimes permissions work better with the Page's own token
-            console.log('Strategy 1 failed. Trying Strategy 2: Fetching per-page details...')
-
-            for (const page of pages) {
-                try {
-                    const pageDetails = await axios.get(`https://graph.facebook.com/v21.0/${page.id}`, {
-                        params: {
-                            fields: 'instagram_business_account',
-                            access_token: page.access_token // Use Page Token
-                        }
-                    })
-
-                    if (pageDetails.data.instagram_business_account) {
-                        instagramId = pageDetails.data.instagram_business_account.id
-                        pageAccessToken = page.access_token
-                        pageId = page.id
-                        console.log(`Strategy 2 Success: Found IG ID ${instagramId} on page ${page.name} using Page Token`)
-                        break
-                    }
-                } catch (e) {
-                    // console.log(`Failed to fetch details for page ${page.name}`)
-                }
-            }
-        }
-
-        if (!instagramId) {
-            console.log('No page has instagram_business_account field (checked both strategies).')
-            return NextResponse.json({ error: 'No Instagram Business Account found' }, { status: 404 })
-        }
-
-        console.log('Final Instagram Business ID:', instagramId)
-
-        // SUBSCRIBE TO WEBHOOKS FOR THIS PAGE using Page Access Token
-        if (pageId && pageAccessToken) {
-            console.log(`Subscribing Page ${pageId} to Webhooks...`)
-            try {
-                const subscribeResponse = await axios.post(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, null, {
-                    params: {
-                        subscribed_fields: 'messages,messaging_postbacks,messaging_optins,message_deliveries,message_reads',
-                        access_token: pageAccessToken
-                    }
-                })
-                console.log('Page Subscription Result:', subscribeResponse.data)
-            } catch (error: any) {
-                console.error('Failed to subscribe page to webhooks:', error?.response?.data || error.message)
-            }
-        }
-
-        // 1. Get Authentication Cookie from request
-        const cookieStore = await cookies();
-        const authCookie = cookieStore.get('Authentication');
-        
-        let headers: Record<string, string> = {};
-        if (authCookie) {
-            headers['Cookie'] = `Authentication=${authCookie.value}`;
-        } else {
-            // Also try fallback to the request cookie header if needed, but normally use explicit
-            const cookieHeader = req.headers.get('cookie');
-            if (cookieHeader) headers['Cookie'] = cookieHeader;
-        }
-
-        const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
-
-        // 2. Save Integration in Core API
+    // Strategy 1: direct field
+    const pageWithIg = pages.find((p) => p.instagram_business_account);
+    if (pageWithIg) {
+      instagramId = pageWithIg.instagram_business_account.id;
+      pageAccessToken = pageWithIg.access_token;
+      pageId = pageWithIg.id;
+    } else {
+      // Strategy 2: per-page fetch
+      for (const page of pages) {
         try {
-            await axios.post(`${AURA_API}/integrations`, {
-                token: pageAccessToken || accessToken,
-                instagramId: instagramId,
-                pageId: pageId,
-                name: 'INSTAGRAM'
-            }, { headers });
-        } catch (integrationError: any) {
-            console.error('Integration Creation Error:', integrationError?.response?.data || integrationError.message);
-            return NextResponse.json({
-                error: 'Failed to save integration. Please try again.'
-            }, { status: 500 });
-        }
-
-        // Revalidate the integrations page to show updated status
-        revalidatePath('/integrations')
-        revalidatePath('/') // Revalidate all pages that might fetch user data
-
-        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations`)
-
-    } catch (error: any) {
-        console.error('OAuth Error', error?.response?.data || error.message)
-        return NextResponse.json({ error: 'OAuth Failed' }, { status: 500 })
+          const detail = await axios.get(`https://graph.facebook.com/v21.0/${page.id}`, {
+            params: { fields: "instagram_business_account", access_token: page.access_token },
+          });
+          if (detail.data.instagram_business_account) {
+            instagramId = detail.data.instagram_business_account.id;
+            pageAccessToken = page.access_token;
+            pageId = page.id;
+            break;
+          }
+        } catch {}
+      }
     }
+
+    if (!instagramId) {
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=no_instagram_account`
+      );
+    }
+
+    // ── 4. Subscribe page to webhooks ────────────────────────────────
+    if (pageId && pageAccessToken) {
+      await axios
+        .post(`https://graph.facebook.com/v21.0/${pageId}/subscribed_apps`, null, {
+          params: {
+            subscribed_fields: "messages,messaging_postbacks,messaging_optins,message_deliveries,message_reads",
+            access_token: pageAccessToken,
+          },
+        })
+        .catch((e) => console.error("[OAuth] Webhook subscription failed:", e.response?.data || e.message));
+    }
+
+    // ── 5. Save integration to MongoDB via Prisma ────────────────────
+    // Remove old integrations for this user
+    await prisma.integration.deleteMany({ where: { userId, name: "INSTAGRAM" } });
+    // Remove any integration with same instagramId (cross-user reconnect)
+    if (instagramId) {
+      await prisma.integration.deleteMany({ where: { instagramId } });
+    }
+
+    await prisma.integration.create({
+      data: {
+        userId,
+        token: pageAccessToken || accessToken,
+        instagramId,
+        pageId,
+        name: "INSTAGRAM",
+      },
+    });
+
+    revalidatePath("/integrations");
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations`);
+  } catch (error: any) {
+    console.error("[OAuth] Error:", error?.response?.data || error.message);
+    return NextResponse.redirect(
+      `${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=oauth_failed`
+    );
+  }
 }

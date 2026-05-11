@@ -10,12 +10,14 @@ import { Button, Input, Label, Badge } from '@codeswayam/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Save, Loader2, Trash2, Zap, MessageSquare, Bot, Hash, Image as ImageIcon, Send, Pencil } from 'lucide-react';
+import { Save, Loader2, Trash2, Zap, MessageSquare, Bot, Hash, Image as ImageIcon, Send, Pencil, Lock, Sparkles, Crown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { updateAutomation, deleteAutomation } from '@/actions/automations';
 import { toast } from 'sonner';
 import PostSelector from './post-selector';
+import { useAuraflowAccess } from '@/lib/use-auraflow-access';
+import Link from 'next/link';
 
 type Props = { initialData: any; automationId: string }
 
@@ -55,7 +57,7 @@ const buildInitialNodes = (d: any): Node[] => [
             reply: d.listener?.commentReply || d.listener?.dmReply || '',
             dmReply: d.listener?.dmReply || '',
             prompt: d.listener?.prompt || '',
-            sendDm: !!(d.listener?.dmReply && d.trigger?.some((t: any) => t.type === 'COMMENT')),
+            sendDm: !!(d.listener?.dmReply && d.triggers?.some((t: any) => t.type === 'COMMENT')),
         },
         style: {
             background: d.listener?.listener === 'SMART_AI' ? '#000000' : '#ffffff',
@@ -73,8 +75,9 @@ const buildInitialNodes = (d: any): Node[] => [
 
 export default function AutomationBuilder({ initialData, automationId }: Props) {
     const router = useRouter();
+    const access = useAuraflowAccess();
 
-    const initialTriggerTypes = initialData.trigger?.map((t: any) => t.type) || [];
+    const initialTriggerTypes = initialData.triggers?.map((t: any) => t.type) || [];
     const [runOnDms, setRunOnDms] = useState(initialTriggerTypes.includes('DM') || initialTriggerTypes.length === 0);
     const [runOnComments, setRunOnComments] = useState(initialTriggerTypes.includes('COMMENT'));
 
@@ -261,25 +264,72 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                             <div className="space-y-4">
                                 <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Response Engine</Label>
                                 <div className="grid grid-cols-2 gap-4">
-                                    {[
-                                        { value: 'MESSAGE', label: 'Static', icon: <Pencil className="w-5 h-5" /> },
-                                        { value: 'SMART_AI', label: 'AI Agent', icon: <Bot className="w-5 h-5" /> },
-                                    ].map(t => (
-                                        <button
-                                            key={t.value}
-                                            onClick={() => updateNodeData('listenerType', t.value)}
-                                            className={cn(
-                                                "flex flex-col items-center gap-3 p-6 rounded-[32px] border transition-all",
-                                                selectedNode.data.listenerType === t.value
-                                                    ? "bg-foreground text-background border-foreground"
-                                                    : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground"
-                                            )}
-                                        >
-                                            {t.icon}
-                                            <span className="text-xs font-bold uppercase tracking-widest">{t.label}</span>
-                                        </button>
-                                    ))}
+                                    <button
+                                        onClick={() => updateNodeData('listenerType', 'MESSAGE')}
+                                        className={cn(
+                                            "flex flex-col items-center gap-3 p-6 rounded-[32px] border transition-all",
+                                            selectedNode.data.listenerType === 'MESSAGE'
+                                                ? "bg-foreground text-background border-foreground"
+                                                : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground"
+                                        )}
+                                    >
+                                        <Pencil className="w-5 h-5" />
+                                        <span className="text-xs font-bold uppercase tracking-widest">Static</span>
+                                    </button>
+
+                                    {/* AI Agent button — gated by plan + points */}
+                                    <button
+                                        onClick={() => {
+                                            if (!access.isLoaded) return;
+                                            if (!access.canAffordAiCall) {
+                                                toast.error(
+                                                    access.aiIncluded
+                                                        ? 'AI is included in your plan but something went wrong.'
+                                                        : `You need at least ${access.aiCallCost} points to use AI Agent. Buy credits or upgrade your plan.`,
+                                                    { duration: 5000 }
+                                                );
+                                                return;
+                                            }
+                                            updateNodeData('listenerType', 'SMART_AI');
+                                        }}
+                                        className={cn(
+                                            "flex flex-col items-center gap-3 p-6 rounded-[32px] border transition-all relative",
+                                            selectedNode.data.listenerType === 'SMART_AI'
+                                                ? "bg-foreground text-background border-foreground"
+                                                : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground",
+                                            !access.canAffordAiCall && "opacity-60 cursor-not-allowed"
+                                        )}
+                                    >
+                                        <Bot className="w-5 h-5" />
+                                        <span className="text-xs font-bold uppercase tracking-widest">AI Agent</span>
+                                        {access.isLoaded && !access.aiIncluded && (
+                                            <span className="absolute -top-2 -right-2 bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <Sparkles className="w-2.5 h-2.5" />{access.aiCallCost}pts
+                                            </span>
+                                        )}
+                                        {access.isLoaded && access.aiIncluded && (
+                                            <span className="absolute -top-2 -right-2 bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                                                <Crown className="w-2.5 h-2.5" />Free
+                                            </span>
+                                        )}
+                                    </button>
                                 </div>
+
+                                {/* Points / upgrade notice */}
+                                {access.isLoaded && !access.aiIncluded && (
+                                    <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-secondary border border-border text-xs font-bold">
+                                        <span className="text-muted-foreground">Balance: <span className="text-foreground">{access.creditBalance.toLocaleString()} pts</span></span>
+                                        {!access.isSubscribed ? (
+                                            <Link href="/subscription" className="text-primary flex items-center gap-1 hover:underline">
+                                                <Crown className="w-3 h-3" /> Upgrade for free AI
+                                            </Link>
+                                        ) : (
+                                            <Link href="/subscription" className="text-primary flex items-center gap-1 hover:underline">
+                                                <Sparkles className="w-3 h-3" /> Buy credits
+                                            </Link>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {selectedNode.data.listenerType === 'MESSAGE' && (
@@ -308,6 +358,35 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                                     <div className="bg-primary/10 p-6 rounded-[24px] flex items-start gap-4">
                                        <Bot className="w-6 h-6 text-primary shrink-0" />
                                        <p className="text-xs font-bold text-primary leading-relaxed">AI will use this prompt to generate unique, context-aware responses to every user.</p>
+                                    </div>
+
+                                    {/* Knowledge Base — deep link to neural-web */}
+                                    <div className="pt-4 border-t border-border space-y-3">
+                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Knowledge Base (RAG)</Label>
+                                        <div className="p-5 rounded-[24px] border border-border bg-secondary/30 space-y-3">
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                Upload your product catalog, FAQs, or business docs so the AI answers from your actual content.
+                                            </p>
+                                            <a
+                                                href={`${process.env.NEXT_PUBLIC_NEURAL_WEB_URL || 'http://localhost:3008'}/knowledge-base`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-between w-full px-5 py-3 rounded-2xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all"
+                                            >
+                                                <span>Manage Knowledge Base</span>
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                            </a>
+                                            <p className="text-[10px] text-muted-foreground text-center">
+                                                After uploading docs, copy the KB ID and paste it below.
+                                            </p>
+                                            <input
+                                                type="number"
+                                                placeholder="KB ID from NeuralHub (optional)"
+                                                value={selectedNode.data.kbId as string || ''}
+                                                onChange={e => updateNodeData('kbId', e.target.value ? Number(e.target.value) : undefined)}
+                                                className="w-full px-4 py-2.5 rounded-2xl border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}

@@ -10,8 +10,6 @@ export const auth = async () => {
     }
 
     try {
-        // Since we are reading the token, we can just decode it if we trust our central auth
-        // Or optimally verify with a shared secret, but decoding is often enough for reading the sub.
         const decoded = jwt.decode(token) as { sub: string } | null
 
         if (!decoded || !decoded.sub) {
@@ -22,4 +20,12 @@ export const auth = async () => {
     } catch (e: any) {
         return { userId: null, error: e.message }
     }
+}
+
+// Helper: returns userId as number or null
+export const getAuthUserId = async (): Promise<number | null> => {
+    const { userId } = await auth()
+    if (!userId) return null
+    const parsed = parseInt(String(userId))
+    return isNaN(parsed) ? null : parsed
 }

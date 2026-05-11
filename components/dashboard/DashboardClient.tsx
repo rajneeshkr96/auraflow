@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { Zap, Users, MessageSquare, TrendingUp, Plus, ArrowRight, Instagram, CheckCircle2, Circle, BarChart3, ChevronRight } from 'lucide-react';
+import { Zap, Users, MessageSquare, TrendingUp, Plus, ArrowRight, Instagram, CheckCircle2, Circle, BarChart3, ChevronRight, Bot, Sparkles, Crown, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@codeswayam/ui';
 import { Badge } from '@codeswayam/ui';
 import UsageMeter from './UsageMeter';
+import { useAuraflowAccess } from '@/lib/use-auraflow-access';
 
 interface DashboardProps {
   user: any;
@@ -30,6 +31,10 @@ const itemVariants = {
 export default function DashboardClient({ user, automations, stats }: DashboardProps) {
   const instagramConnected = !!user?.integrations?.find((i: any) => i.name === 'INSTAGRAM');
   const firstName = user?.name?.split(' ')[0] || 'there';
+  const access = useAuraflowAccess();
+
+  const planTier = access.tier;
+  const usageLimits = access.limits;
 
   const statCards = [
     { label: 'Total Automations', value: String(stats.totalAutomations), icon: Zap },
@@ -90,6 +95,72 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
           </div>
         ))}
       </motion.div>
+
+      {/* AI Access Status Banner */}
+      {access.isLoaded && (
+        <motion.div variants={itemVariants}>
+          <div className={`rounded-[40px] p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 ${
+            access.aiIncluded
+              ? 'bg-foreground text-background'
+              : 'bg-white border border-border'
+          }`}>
+            <div className="flex items-center gap-6">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
+                access.aiIncluded ? 'bg-white/10' : 'bg-primary/10'
+              }`}>
+                <Bot className={`w-7 h-7 ${access.aiIncluded ? 'text-white' : 'text-primary'}`} />
+              </div>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <span className={`text-lg font-bold tracking-tight ${
+                    access.aiIncluded ? 'text-white' : 'text-foreground'
+                  }`}>
+                    AI Agent Status
+                  </span>
+                  <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${
+                    access.aiIncluded
+                      ? 'bg-primary text-white'
+                      : 'bg-primary/10 text-primary'
+                  }`}>
+                    {access.planLabel}
+                  </span>
+                </div>
+                <p className={`text-sm font-medium ${
+                  access.aiIncluded ? 'text-white/60' : 'text-muted-foreground'
+                }`}>
+                  {access.aiIncluded
+                    ? 'AI replies are included in your plan — no points deducted.'
+                    : `Each AI reply costs ${access.aiCallCost} pts. Balance: ${access.creditBalance.toLocaleString()} pts.`
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              {!access.aiIncluded && (
+                <Link
+                  href="/subscription"
+                  className={`h-12 px-6 rounded-full text-sm font-bold flex items-center gap-2 transition-all hover:scale-105 active:scale-95 ${
+                    access.aiIncluded
+                      ? 'bg-white text-foreground'
+                      : 'bg-primary text-white shadow-lg shadow-primary/20'
+                  }`}
+                >
+                  <Crown className="w-4 h-4" />
+                  {access.isSubscribed ? 'Upgrade Plan' : 'Get Pro — Free AI'}
+                </Link>
+              )}
+              {!access.aiIncluded && (
+                <Link
+                  href="/subscription"
+                  className="h-12 px-6 rounded-full text-sm font-bold border border-border flex items-center gap-2 hover:border-primary/30 transition-all"
+                >
+                  <Sparkles className="w-4 h-4 text-primary" /> Buy Credits
+                </Link>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Recent Automations */}
@@ -179,14 +250,11 @@ export default function DashboardClient({ user, automations, stats }: DashboardP
            {/* Usage */}
            <div className="bg-white border border-border rounded-[48px] p-10">
               <UsageMeter
-                planTier={user?.planTier || 'free'}
-                usageLimits={user?.usageLimits}
                 usage={{
                   aiResponses: stats.totalReplies || 0,
                   automations: stats.totalAutomations || 0,
                   connections: user?.integrations?.length || 0,
                 }}
-                authUrl={process.env.NEXT_PUBLIC_APP_AUTH_URL}
               />
            </div>
         </motion.div>

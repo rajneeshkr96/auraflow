@@ -14,6 +14,7 @@ const BREADCRUMBS: Record<string, string> = {
   "/automations": "Automations",
   "/analytics": "Analytics",
   "/integrations": "Integrations",
+  "/subscription": "Subscription",
   "/settings": "Settings",
 };
 

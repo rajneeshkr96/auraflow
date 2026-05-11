@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URL")
+}
+
+model Automation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String   @default("Untitled")
+  active    Boolean  @default(false)
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  triggers  Trigger[]
+  keywords  Keyword[]
+  listener  Listener?
+  posts     Post[]
+
+  @@map("automations")
+}
+
+model Trigger {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  type         TriggerType
+  automationId String     @db.ObjectId
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("triggers")
+}
+
+model Keyword {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  word         String
+  automationId String     @db.ObjectId
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("keywords")
+}
+
+model Listener {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  listener       ListenerType @default(MESSAGE)
+  commentReply   String?
+  dmReply        String?
+  prompt         String?
+  // Neural agent ID created per-user when they first use SMART_AI
+  neuralAgentId  String?
+  // Neural KB ID (from neural-web) attached to this agent for RAG
+  neuralKbId     Int?
+  automationId   String       @unique @db.ObjectId
+  automation     Automation   @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("listeners")
+}
+
+model Post {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  postid       String
+  caption      String?
+  media        String?
+  mediaType    String?
+  automationId String     @db.ObjectId
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@map("posts")
+}
+
+model Integration {
+  id          String          @id @default(auto()) @map("_id") @db.ObjectId
+  name        IntegrationType @default(INSTAGRAM)
+  token       String
+  instagramId String?         @unique
+  pageId      String?
+  expiresAt   DateTime?
+  userId      Int
+  createdAt   DateTime        @default(now())
+
+  conversations Conversation[]
+
+  @@map("integrations")
+}
+
+model Conversation {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  recipientId   String
+  userId        Int
+  createdAt     DateTime    @default(now())
+  integrationId String?     @db.ObjectId
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  messages Message[]
+
+  @@unique([userId, recipientId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(auto()) @map("_id") @db.ObjectId
+  role           MessageRole
+  content        String
+  inputTokens    Int?
+  outputTokens   Int?
+  createdAt      DateTime     @default(now())
+  conversationId String       @db.ObjectId
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+enum TriggerType {
+  DM
+  COMMENT
+}
+
+enum ListenerType {
+  MESSAGE
+  SMART_AI
+}
+
+enum IntegrationType {
+  INSTAGRAM
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}

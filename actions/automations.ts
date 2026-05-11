@@ -1,104 +1,195 @@
 "use server";
 
-import axios from "axios";
-import { cookies } from "next/headers";
+import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getAuthUserId } from "@/lib/auth";
 
-const AURA_API = process.env.NEXT_PUBLIC_AURA_API_URL || 'http://localhost:3005';
-
-async function getAuthHeader() {
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('Authentication');
-    if (!authCookie) return null;
-    return { Cookie: `Authentication=${authCookie.value}` };
+async function getCurrentUserId() {
+  return getAuthUserId();
 }
 
 export async function getAutomations() {
-    try {
-        const headers = await getAuthHeader();
-        if (!headers) return [];
-        const response = await axios.get(`${AURA_API}/automations`, { headers });
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching automations:', error);
-        return [];
-    }
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+
+  return prisma.automation.findMany({
+    where: { userId },
+    include: { triggers: true, keywords: true, listener: true, posts: true },
+    orderBy: { createdAt: "desc" },
+  });
 }
 
 export async function getAutomationStats() {
-    try {
-        const headers = await getAuthHeader();
-        if (!headers) return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
+  const userId = await getCurrentUserId();
+  if (!userId) return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
 
-        // Try fetching from stats endpoint, fallback to deriving from automations
-        try {
-            const response = await axios.get(`${AURA_API}/automations/stats`, { headers });
-            return response.data;
-        } catch {
-            // Fallback: compute basic stats from automations list
-            const automations = await getAutomations();
-            return {
-                totalAutomations: automations.length,
-                activeAutomations: automations.filter((a: any) => a.active).length,
-                totalTriggers: automations.reduce((sum: number, a: any) => sum + (a.trigger?.length || 0), 0),
-                totalReplies: 0,
-            };
-        }
-    } catch (error) {
-        console.error('Error fetching stats:', error);
-        return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
-    }
+  const [total, active, triggers] = await Promise.all([
+    prisma.automation.count({ where: { userId } }),
+    prisma.automation.count({ where: { userId, active: true } }),
+    prisma.trigger.count({
+      where: { automation: { userId } },
+    }),
+  ]);
+
+  return { totalAutomations: total, activeAutomations: active, totalTriggers: triggers, totalReplies: 0 };
 }
 
 export async function getAutomationById(id: string) {
-    try {
-        const headers = await getAuthHeader();
-        if (!headers) return null;
-        const response = await axios.get(`${AURA_API}/automations/${id}`, { headers });
-        return response.data;
-    } catch (error) {
-        console.error(`Error fetching automation ${id}:`, error);
-        return null;
-    }
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  return prisma.automation.findFirst({
+    where: { id, userId },
+    include: { triggers: true, keywords: true, listener: true, posts: true },
+  });
 }
 
-export async function updateAutomation(id: string, data: {
-    name?: string,
-    active?: boolean,
-    triggerTypes?: ('DM' | 'COMMENT')[],
-    keywords?: string[],
-    listenerType?: 'MESSAGE' | 'SMART_AI',
-    reply?: string,
-    dmReply?: string,
-    prompt?: string,
-    posts?: { postid: string, caption?: string, media?: string, mediaType?: string }[]
-}) {
-    try {
-        const headers = await getAuthHeader();
-        if (!headers) return { success: false, error: 'Unauthorized' };
-        await axios.put(`${AURA_API}/automations/${id}`, data, { headers });
-        revalidatePath(`/automations/${id}`);
-        revalidatePath('/automations');
-        return { success: true };
-    } catch (error: any) {
-        console.error('Error updating automation:', error?.response?.data || error.message);
-        return { success: false, error: error?.response?.data?.message || 'Failed to save' };
+export async function createAutomation(name?: string) {
+  const userId = await getCurrentUserId();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  const automation = await prisma.automation.create({
+    data: { userId, name: name?.trim() || "Untitled" },
+  });
+
+  revalidatePath("/automations");
+  return { success: true, data: automation };
+}
+
+export async function updateAutomation(
+  id: string,
+  data: {
+    name?: string;
+    active?: boolean;
+    triggerTypes?: ("DM" | "COMMENT")[];
+    keywords?: string[];
+    listenerType?: "MESSAGE" | "SMART_AI";
+    reply?: string;
+    dmReply?: string;
+    prompt?: string;
+    posts?: { postid: string; caption?: string; media?: string; mediaType?: string }[];
+  }
+) {
+  const userId = await getCurrentUserId();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  const existing = await prisma.automation.findFirst({ where: { id, userId } });
+  if (!existing) return { success: false, error: "Not found" };
+
+  // Universal DM guard
+  if (data.triggerTypes?.includes("DM") && (!data.keywords || data.keywords.length === 0) && data.active !== false) {
+    const universalDm = await prisma.automation.findFirst({
+      where: {
+        userId,
+        active: true,
+        id: { not: id },
+        triggers: { some: { type: "DM" } },
+        keywords: { none: {} },
+      },
+    });
+    if (universalDm) return { success: false, error: "Only one Universal DM automation is allowed." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // 1. Update base
+    await tx.automation.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.active !== undefined && { active: data.active }),
+      },
+    });
+
+    // 2. Triggers
+    if (data.triggerTypes) {
+      await tx.trigger.deleteMany({ where: { automationId: id } });
+      if (data.triggerTypes.length > 0) {
+        await tx.trigger.createMany({
+          data: data.triggerTypes.map((type) => ({ type, automationId: id })),
+        });
+      }
     }
+
+    // 3. Keywords
+    if (data.keywords !== undefined) {
+      await tx.keyword.deleteMany({ where: { automationId: id } });
+      if (data.keywords.length > 0) {
+        await tx.keyword.createMany({
+          data: data.keywords.map((word) => ({ word, automationId: id })),
+        });
+      }
+    }
+
+    // 4. Listener
+    if (data.listenerType) {
+      const isDm = data.triggerTypes?.includes("DM");
+      const isComment = data.triggerTypes?.includes("COMMENT");
+      const listenerData = {
+        listener: data.listenerType,
+        prompt: data.listenerType === "SMART_AI" ? (data.prompt ?? null) : null,
+        dmReply: isDm ? (data.reply ?? null) : (data.dmReply ?? null),
+        commentReply: isComment ? (data.reply ?? null) : null,
+      };
+
+      const upserted = await tx.listener.upsert({
+        where: { automationId: id },
+        create: { automationId: id, ...listenerData },
+        update: listenerData,
+      });
+
+      // If prompt changed and agent already exists, refresh it in background
+      if (
+        data.listenerType === 'SMART_AI' &&
+        data.prompt &&
+        upserted.neuralAgentId
+      ) {
+        const { refreshNeuralAgent } = await import('@/lib/neural');
+        refreshNeuralAgent(
+          upserted.id,
+          existing.userId,
+          data.prompt,
+          existing.name
+        ).catch(console.error);
+      }
+    }
+
+    // 5. Posts
+    if (data.posts !== undefined) {
+      await tx.post.deleteMany({ where: { automationId: id } });
+      if (data.posts.length > 0) {
+        await tx.post.createMany({
+          data: data.posts.map((p) => ({ ...p, automationId: id })),
+        });
+      }
+    }
+  });
+
+  revalidatePath(`/automations/${id}`);
+  revalidatePath("/automations");
+  return { success: true };
 }
 
 export async function deleteAutomation(id: string) {
-    try {
-        const headers = await getAuthHeader();
-        if (!headers) return { success: false, error: 'Unauthorized' };
-        await axios.delete(`${AURA_API}/automations/${id}`, { headers });
-        revalidatePath('/automations');
-        return { success: true };
-    } catch (error: any) {
-        console.error('Error deleting automation:', error?.response?.data || error.message);
-        return { success: false, error: 'Failed to delete automation' };
-    }
+  const userId = await getCurrentUserId();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  const existing = await prisma.automation.findFirst({
+    where: { id, userId },
+    include: { listener: true },
+  });
+  if (!existing) return { success: false, error: "Not found" };
+
+  // Clean up the neural agent if one was provisioned for this automation
+  if (existing.listener?.neuralAgentId) {
+    const { deleteNeuralAgent } = await import('@/lib/neural');
+    await deleteNeuralAgent(existing.listener.neuralAgentId);
+  }
+
+  await prisma.automation.delete({ where: { id } });
+  revalidatePath("/automations");
+  return { success: true };
 }
 
 export async function toggleAutomation(id: string, active: boolean) {
-    return updateAutomation(id, { active });
+  return updateAutomation(id, { active });
 }
