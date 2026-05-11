@@ -30,7 +30,15 @@ export async function GET() {
     'pages_read_user_content'
   ].join(',')
 
-  const url = `https://www.facebook.com/v17.0/dialog/oauth?client_id=${client_id}&redirect_uri=${redirect_uri}&scope=${scopes}&state=${userId}&response_type=code`
+  const params = new URLSearchParams({
+    client_id,
+    redirect_uri,
+    scope: scopes,
+    state: String(userId),
+    response_type: 'code',
+  })
+
+  const url = `https://www.facebook.com/v21.0/dialog/oauth?${params.toString()}`
 
   return NextResponse.redirect(url)
 }
