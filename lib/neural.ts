@@ -1,12 +1,17 @@
 import NeuralClient from '@codeswayam/neural';
 import { prisma } from './db';
 
-// One platform-scoped NeuralClient for all Auraflow users.
-// This key has scope: 'platform', appName: 'auraflow', rateLimit: 0 (unlimited).
-const neural = new NeuralClient({
-  apiKey: process.env.NEURAL_API_KEY!,
-  baseUrl: process.env.NEURAL_API_URL || 'http://localhost:3006',
-});
+let _neural: NeuralClient | null = null;
+function getNeuralClient(): NeuralClient {
+  if (!_neural) {
+    if (!process.env.NEURAL_API_KEY) throw new Error('[NeuralClient] apiKey is required.');
+    _neural = new NeuralClient({
+      apiKey: process.env.NEURAL_API_KEY,
+      baseUrl: process.env.NEURAL_API_URL || 'http://localhost:3006',
+    });
+  }
+  return _neural;
+}
 
 /**
  * Get or create a dedicated neural agent for a specific Auraflow automation.
@@ -29,7 +34,7 @@ export async function getOrCreateNeuralAgent(
   if (listener.neuralAgentId) return listener.neuralAgentId;
 
   // Create a new dedicated agent for this user's automation
-  const agent = await neural.agents.create({
+  const agent = await getNeuralClient().agents.create({
     name: `auraflow-${userId}-${automationName.toLowerCase().replace(/\s+/g, '-').slice(0, 30)}`,
     appName: 'auraflow',
     model: 'gemini-2.0-flash',
@@ -63,7 +68,7 @@ export async function refreshNeuralAgent(
 
   // Delete old agent if exists
   if (listener?.neuralAgentId) {
-    await neural.agents.delete(listener.neuralAgentId).catch(() => null);
+    await getNeuralClient().agents.delete(listener.neuralAgentId).catch(() => null);
     await prisma.listener.update({
       where: { id: listenerId },
       data: { neuralAgentId: null },
@@ -83,7 +88,7 @@ export async function chatWithAgent(
   sessionId: string
 ): Promise<string> {
   try {
-    const result = await neural.agents.chat(agentId, message, { sessionId });
+    const result = await getNeuralClient().agents.chat(agentId, message, { sessionId });
     return result.text || "I'm here to help!";
   } catch (err: any) {
     console.error('[Auraflow Neural] Chat error:', err.message);
@@ -95,7 +100,7 @@ export async function chatWithAgent(
  * Delete a user's neural agent when they delete their automation.
  */
 export async function deleteNeuralAgent(neuralAgentId: string): Promise<void> {
-  await neural.agents.delete(neuralAgentId).catch(() => null);
+  await getNeuralClient().agents.delete(neuralAgentId).catch(() => null);
 }
 
 /**
@@ -108,7 +113,7 @@ export async function getAgentKbStatus(neuralAgentId: string): Promise<{
   status: string;
 } | null> {
   try {
-    const agent = await neural.agents.get(neuralAgentId);
+    const agent = await getNeuralClient().agents.get(neuralAgentId);
     if (!agent?.knowledgeBaseId) return null;
     return {
       kbName: agent.knowledgeBaseName || 'Knowledge Base',
