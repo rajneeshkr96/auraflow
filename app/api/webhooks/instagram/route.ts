@@ -49,64 +49,84 @@ export async function POST(req: Request) {
 
 // ── Core Processing ───────────────────────────────────────────────────────────
 async function processWebhook(body: any) {
+  console.log("[Webhook] processWebhook start. object:", body.object, "entries:", body.entry?.length);
   for (const entry of body.entry ?? []) {
     const instagramAccountId: string = entry.id;
+    console.log("[Webhook] entry.id:", instagramAccountId, "has messaging:", !!entry.messaging, "has changes:", !!entry.changes);
 
     if (entry.messaging) {
       for (const event of entry.messaging) {
+        console.log("[Webhook] DM event:", JSON.stringify(event).slice(0, 200));
         await handleDm(instagramAccountId, event);
       }
     }
 
     if (entry.changes) {
       for (const change of entry.changes) {
+        console.log("[Webhook] change.field:", change.field);
         if (change.field === "comments") {
           await handleComment(instagramAccountId, change.value);
         }
       }
     }
   }
+  console.log("[Webhook] processWebhook done.");
 }
 
 // ── DM Handler ────────────────────────────────────────────────────────────────
 async function handleDm(instagramAccountId: string, event: any) {
   const senderId: string = event.sender?.id;
   const messageText: string = event.message?.text;
-  if (event.message?.is_echo || !messageText || senderId === instagramAccountId) return;
+
+  console.log("[DM] sender:", senderId, "| is_echo:", event.message?.is_echo, "| text:", messageText);
+
+  if (event.message?.is_echo || !messageText || senderId === instagramAccountId) {
+    console.log("[DM] Skipped — echo / no text / self");
+    return;
+  }
 
   const integration = await prisma.integration.findFirst({
     where: { instagramId: instagramAccountId },
   });
-  if (!integration) return;
+  if (!integration) {
+    console.error("[DM] ❌ No integration found for instagramId:", instagramAccountId);
+    return;
+  }
+  console.log("[DM] ✅ Integration found | userId:", integration.userId, "| instagramId:", integration.instagramId, "| pageId:", integration.pageId);
 
-  // Upsert conversation
   const conversation = await prisma.conversation.upsert({
     where: { userId_recipientId: { userId: integration.userId, recipientId: senderId } },
     create: { userId: integration.userId, recipientId: senderId, integrationId: integration.id },
     update: {},
   });
 
-  // Log user message
   await prisma.message.create({
     data: { conversationId: conversation.id, role: "USER", content: messageText },
   });
 
-  // Find matching automation
   const automations = await prisma.automation.findMany({
     where: { userId: integration.userId, active: true },
     include: { triggers: true, keywords: true, listener: true },
   });
+  console.log("[DM] Active automations:", automations.length);
 
   const automation = matchAutomation(automations, "DM", messageText);
-  if (!automation?.listener) return;
+  if (!automation?.listener) {
+    console.log("[DM] ❌ No automation matched for:", messageText);
+    return;
+  }
+  console.log("[DM] ✅ Matched:", automation.name, "| type:", automation.listener.listener);
 
   const { listener } = automation;
 
   if (listener.listener === "MESSAGE") {
     const reply = listener.dmReply || "Thanks!";
+    console.log("[DM] Sending MESSAGE reply:", reply);
     await sendDm(integration.token, senderId, reply, integration.pageId, integration.instagramId);
     await logAssistant(conversation.id, reply);
+    console.log("[DM] ✅ Done.");
   } else if (listener.listener === "SMART_AI") {
+    console.log("[DM] Getting SMART_AI agent...");
     const agentId = await getOrCreateNeuralAgent(
       listener.id,
       integration.userId,
@@ -116,10 +136,13 @@ async function handleDm(instagramAccountId: string, event: any) {
     );
     const sessionId = `auraflow-dm-${conversation.id}`;
     const aiReply = await chatWithAgent(agentId, messageText, sessionId);
+    console.log("[DM] AI reply:", aiReply?.slice(0, 100));
     await sendDm(integration.token, senderId, aiReply, integration.pageId, integration.instagramId);
     await logAssistant(conversation.id, aiReply);
+    console.log("[DM] ✅ Done.");
   }
 }
+
 
 // ── Comment Handler ───────────────────────────────────────────────────────────
 async function handleComment(instagramAccountId: string, value: any) {
