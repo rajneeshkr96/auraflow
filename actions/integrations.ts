@@ -30,16 +30,20 @@ export async function getInstagramPosts() {
   if (!integration?.token || !integration.instagramId) return { status: 404, data: [] };
 
   try {
-    const response = await axios.get(
-      `https://graph.facebook.com/v21.0/${integration.instagramId}/media`,
-      {
-        params: {
-          fields: "id,caption,media_url,media_type,timestamp,thumbnail_url,permalink",
-          access_token: integration.token,
-          limit: 20,
-        },
-      }
-    );
+    // Instagram Business Login tokens must use graph.instagram.com
+    // Facebook Login (Page) tokens use graph.facebook.com
+    const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
+    const mediaUrl = useInstagramLogin
+      ? `https://graph.instagram.com/me/media`
+      : `https://graph.facebook.com/v21.0/${integration.instagramId}/media`;
+
+    const response = await axios.get(mediaUrl, {
+      params: {
+        fields: "id,caption,media_url,media_type,timestamp,thumbnail_url,permalink",
+        access_token: integration.token,
+        limit: 20,
+      },
+    });
     return { status: 200, data: response.data.data };
   } catch {
     return { status: 500, data: [] };

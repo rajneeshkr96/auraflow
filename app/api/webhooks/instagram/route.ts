@@ -188,10 +188,16 @@ function matchAutomation(
 
 // ── Instagram API Helpers ─────────────────────────────────────────────────────
 async function sendDm(token: string, recipientId: string, text: string, pageId?: string | null) {
-  const accountId = pageId || "me";
+  // Instagram Business Login flow: no pageId, token is an instagram token → use graph.instagram.com
+  // Facebook Login flow: pageId is present, token is a page token → use graph.facebook.com
+  const useInstagramLogin = !pageId;
+  const baseUrl = useInstagramLogin
+    ? `https://graph.instagram.com/v21.0/me/messages`
+    : `https://graph.facebook.com/v21.0/${pageId}/messages`;
+
   await axios
     .post(
-      `https://graph.facebook.com/v21.0/${accountId}/messages`,
+      baseUrl,
       { recipient: { id: recipientId }, message: { text } },
       { params: { access_token: token } }
     )
@@ -199,9 +205,15 @@ async function sendDm(token: string, recipientId: string, text: string, pageId?:
 }
 
 async function sendCommentReply(token: string, commentId: string, text: string) {
+  // Comment replies use the same endpoint structure for both flows
+  const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
+  const baseUrl = useInstagramLogin
+    ? `https://graph.instagram.com/v21.0/${commentId}/replies`
+    : `https://graph.facebook.com/v21.0/${commentId}/replies`;
+
   await axios
     .post(
-      `https://graph.facebook.com/v21.0/${commentId}/replies`,
+      baseUrl,
       { message: text },
       { params: { access_token: token } }
     )

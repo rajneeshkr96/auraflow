@@ -17,16 +17,21 @@ export const getInstagramPosts = async () => {
       return { status: 404, data: [] };
     }
 
-    const response = await axios.get(
-      `https://graph.facebook.com/v21.0/${integration.instagramId}/media`,
-      {
-        params: {
-          fields: "id,caption,media_url,media_type,timestamp,thumbnail_url,permalink",
-          access_token: integration.token,
-          limit: 20,
-        },
-      }
-    );
+    // Instagram Business Login flow uses graph.instagram.com tokens.
+    // Facebook Login flow uses graph.facebook.com tokens (Page access tokens).
+    const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
+
+    const mediaUrl = useInstagramLogin
+      ? `https://graph.instagram.com/me/media`
+      : `https://graph.facebook.com/v21.0/${integration.instagramId}/media`;
+
+    const response = await axios.get(mediaUrl, {
+      params: {
+        fields: "id,caption,media_url,media_type,timestamp,thumbnail_url,permalink",
+        access_token: integration.token,
+        limit: 20,
+      },
+    });
 
     return { status: 200, data: response.data.data ?? [] };
   } catch (error: any) {
