@@ -116,6 +116,10 @@ async function handleComment(instagramAccountId: string, value: any) {
   const commenterId: string = value.from?.id;
   const commentText: string = value.text;
   const mediaId: string = value.media?.id;
+  const commentId: string = value.id;
+
+  // Guard: skip own comments and events with missing required fields
+  if (!commenterId || !commentText || !commentId) return;
   if (commenterId === instagramAccountId) return;
 
   const integration = await prisma.integration.findFirst({
@@ -143,11 +147,11 @@ async function handleComment(instagramAccountId: string, value: any) {
       listener.prompt || 'You are a helpful Instagram assistant replying to comments.',
       automation.name
     );
-    replyText = await chatWithAgent(agentId, commentText, `auraflow-comment-${value.id}`);
+    replyText = await chatWithAgent(agentId, commentText, `auraflow-comment-${commentId}`);
   }
 
   if (replyText) {
-    await sendCommentReply(integration.token, value.id, replyText);
+    await sendCommentReply(integration.token, commentId, replyText);
   }
 
   if (listener.dmReply) {
@@ -163,22 +167,29 @@ function matchAutomation(
   mediaId?: string
 ) {
   let best: any = null;
+  let bestKeywordLen = 0;   // prefer longer (more specific) keyword matches
   let fallback: any = null;
 
   for (const auto of automations) {
     if (!auto.triggers.some((t: any) => t.type === triggerType)) continue;
 
-    // For COMMENT: check if post matches (if posts are specified)
+    // For COMMENT: skip automations scoped to other posts
     if (triggerType === "COMMENT" && auto.posts?.length > 0) {
       if (!auto.posts.some((p: any) => p.postid === mediaId)) continue;
     }
 
     if (auto.keywords.length > 0) {
-      if (auto.keywords.some((k: any) => text.toLowerCase().includes(k.word.toLowerCase()))) {
+      // Pick the longest keyword that matches — longer = more specific
+      const matched = auto.keywords
+        .filter((k: any) => text.toLowerCase().includes(k.word.toLowerCase()))
+        .sort((a: any, b: any) => b.word.length - a.word.length)[0];
+
+      if (matched && matched.word.length > bestKeywordLen) {
         best = auto;
-        break;
+        bestKeywordLen = matched.word.length;
       }
     } else {
+      // Universal fallback — only used if no keyword match found at all
       if (!fallback) fallback = auto;
     }
   }
