@@ -152,7 +152,7 @@ export default function AutomationsClient({ automations: initial }: { automation
                 >
                     {filtered.map((automation, i) => {
                         const { hasDm, hasComment, isAI } = getAutomationType(automation);
-                        const isNew = !automation.trigger || automation.trigger.length === 0;
+                        const isNew = !automation.triggers || automation.triggers.length === 0;
                         return (
                             <motion.div
                                 key={automation.id}

@@ -79,10 +79,18 @@ async function handleDm(instagramAccountId: string, event: any) {
   }
 
   const integration = await prisma.integration.findFirst({
-    where: { instagramId: instagramAccountId },
+    where: {
+      OR: [
+        { instagramId: instagramAccountId },
+        { pageId: instagramAccountId },
+      ],
+    },
   });
   if (!integration) {
     console.error("[DM] ❌ No integration found for instagramId:", instagramAccountId);
+    // Log all stored IDs to help diagnose
+    const all = await prisma.integration.findMany({ select: { instagramId: true, pageId: true, userId: true } });
+    console.error("[DM] Stored integrations:", JSON.stringify(all));
     return;
   }
   console.log("[DM] ✅ Integration found | userId:", integration.userId, "| instagramId:", integration.instagramId, "| pageId:", integration.pageId);
@@ -149,7 +157,12 @@ async function handleComment(instagramAccountId: string, value: any) {
   if (commenterId === instagramAccountId) return;
 
   const integration = await prisma.integration.findFirst({
-    where: { instagramId: instagramAccountId },
+    where: {
+      OR: [
+        { instagramId: instagramAccountId },
+        { pageId: instagramAccountId },
+      ],
+    },
   });
   if (!integration) return;
 
