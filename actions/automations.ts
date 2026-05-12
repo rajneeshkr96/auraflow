@@ -52,7 +52,6 @@ export async function createAutomation(name?: string) {
     data: { userId, name: name?.trim() || "Untitled" },
   });
 
-  revalidatePath("/automations");
   return { success: true, data: automation };
 }
 

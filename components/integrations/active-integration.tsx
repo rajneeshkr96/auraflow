@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
-import { Badge } from '@codeswayam/ui';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { onDisconnectIntegration } from '@/actions/integrations';
 
 interface ActiveIntegrationProps {
     id: string;
@@ -20,10 +20,12 @@ export default function ActiveIntegration({ id, name, detail, type }: ActiveInte
     const handleDisconnect = async () => {
         if (!confirm(`Disconnect ${name}? Your automations using this integration will stop working.`)) return;
         setLoading(true);
-        try {
-            toast.info(`To reconnect ${name}, use the connect button above.`);
-        } catch (e) {
-            toast.error(`Failed to disconnect ${name}`);
+        const result = await onDisconnectIntegration(id);
+        if (result.status === 200) {
+            toast.success(`${name} disconnected successfully`);
+            router.refresh();
+        } else {
+            toast.error(result.message || `Failed to disconnect ${name}`);
         }
         setLoading(false);
     };
@@ -32,10 +34,10 @@ export default function ActiveIntegration({ id, name, detail, type }: ActiveInte
         <button
             onClick={handleDisconnect}
             disabled={loading}
-            className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 border border-red-200 hover:border-red-300 bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
             {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-            Disconnect
+            {loading ? 'Disconnecting...' : 'Disconnect'}
         </button>
     );
 }
