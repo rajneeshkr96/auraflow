@@ -58,20 +58,33 @@ export async function GET(req: Request) {
       );
       const shortToken: string = tokenRes.data.access_token;
 
-      // IMPORTANT: tokenRes.data.user_id is an App-Scoped User ID and does NOT match
-      // the Instagram Business Account ID that the webhook sends in entry.id.
-      // We must call /me to get the canonical Instagram Business Account ID.
-      const meRes = await axios.get("https://graph.instagram.com/me", {
-        params: { fields: "id,username", access_token: shortToken },
-      });
-      instagramId = String(meRes.data.id);
-      console.log("[OAuth] Instagram /me → id:", instagramId, "username:", meRes.data.username);
-
-      // Step 2: Exchange for long-lived token
+      // Step 2: Exchange for long-lived token first
       const longRes = await axios.get("https://graph.instagram.com/access_token", {
         params: { grant_type: "ig_exchange_token", client_secret, access_token: shortToken },
       });
       accessToken = longRes.data.access_token;
+
+      // Step 3: Use long-lived token to get the Instagram Business Account ID
+      // This returns the same ID that Meta sends in webhook entry.id
+      const meRes = await axios.get("https://graph.instagram.com/v21.0/me", {
+        params: { fields: "id,username,instagram_business_account", access_token: accessToken },
+      });
+      instagramId = String(meRes.data.id);
+      console.log("[OAuth] Instagram /me → id:", instagramId, "username:", meRes.data.username);
+
+      // If the /me id still doesn't match webhook format, try fetching via Graph API
+      // The webhook sends the Instagram Business Account ID (not app-scoped user ID)
+      try {
+        const igAccountRes = await axios.get(`https://graph.facebook.com/v21.0/${instagramId}`, {
+          params: { fields: "id,username", access_token: accessToken },
+        });
+        if (igAccountRes.data.id) {
+          instagramId = String(igAccountRes.data.id);
+          console.log("[OAuth] Graph API confirmed instagramId:", instagramId);
+        }
+      } catch {
+        // keep the /me id
+      }
     } else {
       // ── Facebook Login flow ──────────────────────────────────────────
       const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
