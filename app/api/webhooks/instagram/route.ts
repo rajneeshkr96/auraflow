@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/db";
 import axios from "axios";
 import { getOrCreateNeuralAgent, chatWithAgent } from "@/lib/neural";
 
 const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "auraflow_token";
+
+// ── Tell Vercel to allow up to 30s for this function ─────────────────────────
+// Required so processWebhook (DB + Instagram API calls) has time to complete
+export const maxDuration = 30;
 
 // ── Webhook Verification ──────────────────────────────────────────────────────
 export async function GET(req: Request) {
@@ -26,9 +30,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 404 }, { status: 404 });
     }
 
-    // Return 200 immediately — process async
-    processWebhook(body).catch((err) =>
-      console.error("[Webhook] Processing error:", err)
+    // CRITICAL: Use after() instead of fire-and-forget.
+    // On Vercel, plain fire-and-forget (processWebhook().catch()) is killed
+    // the moment the HTTP response is returned — zero DB/API calls execute.
+    // after() tells the Vercel runtime to keep the function alive until
+    // processWebhook resolves, guaranteeing replies are actually sent.
+    after(
+      processWebhook(body).catch((err) =>
+        console.error("[Webhook] Processing error:", err)
+      )
     );
 
     return NextResponse.json({ received: true }, { status: 200 });
