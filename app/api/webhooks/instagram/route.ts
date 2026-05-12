@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import axios from "axios";
 import { getOrCreateNeuralAgent, chatWithAgent } from "@/lib/neural";
@@ -30,15 +30,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 404 }, { status: 404 });
     }
 
-    // CRITICAL: Use after() instead of fire-and-forget.
-    // On Vercel, plain fire-and-forget (processWebhook().catch()) is killed
-    // the moment the HTTP response is returned — zero DB/API calls execute.
-    // after() tells the Vercel runtime to keep the function alive until
-    // processWebhook resolves, guaranteeing replies are actually sent.
-    after(
-      processWebhook(body).catch((err) =>
-        console.error("[Webhook] Processing error:", err)
-      )
+    await processWebhook(body).catch((err) =>
+      console.error("[Webhook] Processing error:", err)
     );
 
     return NextResponse.json({ received: true }, { status: 200 });

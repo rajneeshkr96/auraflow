@@ -18,8 +18,8 @@ import { useRouter } from 'next/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 function getAutomationType(automation: any) {
-    const hasDm = automation.trigger?.some((t: any) => t.type === 'DM');
-    const hasComment = automation.trigger?.some((t: any) => t.type === 'COMMENT');
+    const hasDm = automation.triggers?.some((t: any) => t.type === 'DM');
+    const hasComment = automation.triggers?.some((t: any) => t.type === 'COMMENT');
     const isAI = automation.listener?.listener === 'SMART_AI';
     return { hasDm, hasComment, isAI };
 }
@@ -227,11 +227,32 @@ export default function AutomationsClient({ automations: initial }: { automation
                                         </h3>
                                     )}
                                     <div className="flex flex-wrap items-center gap-2 mb-8">
-                                        {isNew && <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary px-3 py-1 rounded-full">Draft</span>}
+                                        {isNew && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary px-3 py-1 rounded-full">Draft</span>
+                                                <button
+                                                    onClick={e => { e.preventDefault(); handleDelete(automation.id, automation.name); }}
+                                                    disabled={loadingId === automation.id}
+                                                    className="text-[10px] font-bold uppercase tracking-widest bg-destructive/10 text-destructive px-3 py-1 rounded-full hover:bg-destructive hover:text-white transition-all disabled:opacity-50"
+                                                >
+                                                    {loadingId === automation.id ? '...' : 'Delete'}
+                                                </button>
+                                            </div>
+                                        )}
                                         {hasDm && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">DM Flow</span>}
                                         {hasComment && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">Comments</span>}
                                         {isAI && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary text-white px-3 py-1 rounded-full">Smart AI</span>}
                                     </div>
+                                    {isNew && (
+                                        <div onClick={e => e.preventDefault()} className="mb-6">
+                                            <Link
+                                                href={`/automations/${automation.id}`}
+                                                className="flex items-center justify-center gap-2 w-full h-10 bg-primary text-white text-[11px] font-bold uppercase tracking-widest rounded-2xl hover:bg-primary/90 transition-all"
+                                            >
+                                                <Zap className="w-3.5 h-3.5" /> Setup Flow to Activate
+                                            </Link>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between pt-6 border-t border-border">
                                         <div className="flex items-center gap-2">
                                             <span className={`w-2 h-2 rounded-full ${automation.active ? 'bg-primary' : 'bg-muted-foreground/30'}`} />

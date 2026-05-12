@@ -57,7 +57,15 @@ export async function GET(req: Request) {
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
       const shortToken: string = tokenRes.data.access_token;
-      instagramId = String(tokenRes.data.user_id);
+
+      // IMPORTANT: tokenRes.data.user_id is an App-Scoped User ID and does NOT match
+      // the Instagram Business Account ID that the webhook sends in entry.id.
+      // We must call /me to get the canonical Instagram Business Account ID.
+      const meRes = await axios.get("https://graph.instagram.com/me", {
+        params: { fields: "id,username", access_token: shortToken },
+      });
+      instagramId = String(meRes.data.id);
+      console.log("[OAuth] Instagram /me → id:", instagramId, "username:", meRes.data.username);
 
       // Step 2: Exchange for long-lived token
       const longRes = await axios.get("https://graph.instagram.com/access_token", {
