@@ -205,8 +205,19 @@ async function sendDm(
   pageId?: string | null,
   instagramId?: string | null
 ) {
+  // Guard: never send if required fields are missing or text is empty
+  if (!token || !recipientId || !text.trim()) {
+    console.warn("[Webhook] sendDm skipped — missing token, recipientId, or text");
+    return;
+  }
+
   // Instagram Business Login: use instagramId with graph.instagram.com
   // Facebook Login:           use pageId with graph.facebook.com
+  if (!pageId && !instagramId) {
+    console.error("[Webhook] sendDm skipped — neither pageId nor instagramId is available");
+    return;
+  }
+
   const baseUrl = pageId
     ? `https://graph.facebook.com/v21.0/${pageId}/messages`
     : `https://graph.instagram.com/v21.0/${instagramId}/messages`;
@@ -221,8 +232,13 @@ async function sendDm(
 }
 
 async function sendCommentReply(token: string, commentId: string, text: string) {
-  // Both Instagram Business Login and Facebook Login use the same replies endpoint structure.
-  // The token type determines which host to use.
+  // Guard: never send if required fields are missing or text is empty
+  if (!token || !commentId || !text.trim()) {
+    console.warn("[Webhook] sendCommentReply skipped — missing token, commentId, or text");
+    return;
+  }
+
+  // Both flows use same URL structure — token type determines which host works
   const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
   const baseUrl = useInstagramLogin
     ? `https://graph.instagram.com/v21.0/${commentId}/replies`
@@ -238,9 +254,15 @@ async function sendCommentReply(token: string, commentId: string, text: string) 
 }
 
 async function logAssistant(conversationId: string, content: string) {
-  await prisma.message.create({
-    data: { conversationId, role: "ASSISTANT", content },
-  });
+  // Wrap in try/catch so a DB failure doesn't crash the handler after the reply
+  // has already been sent successfully to Instagram
+  try {
+    await prisma.message.create({
+      data: { conversationId, role: "ASSISTANT", content },
+    });
+  } catch (e) {
+    console.error("[Webhook] Failed to log assistant message:", e);
+  }
 }
 
 // ── NeuralHub AI ─────────────────────────────────────────────────────────────
