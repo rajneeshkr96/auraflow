@@ -13,7 +13,7 @@ export const DEFAULT_TEMPLATES = [
       listener: {
         type: 'MESSAGE',
         commentReply: 'Thanks for your interest! 🎉',
-        dmReply: 'Hi! Here\\'s your free guide: [LINK]. Let me know if you have any questions! 😊'
+        dmReply: "Hi! Here's your free guide: [LINK]. Let me know if you have any questions! 😊"
       }
     }
   },
@@ -28,7 +28,7 @@ export const DEFAULT_TEMPLATES = [
       keywords: [{ word: 'help' }, { word: 'support' }, { word: 'question' }],
       listener: {
         type: 'SMART_AI',
-        prompt: 'You are a helpful customer support agent. Answer questions about our products and services in a friendly, professional manner. If you don\\'t know something, ask them to contact our team directly.'
+        prompt: "You are a helpful customer support agent. Answer questions about our products and services in a friendly, professional manner. If you don't know something, ask them to contact our team directly."
       }
     }
   },
@@ -59,7 +59,7 @@ export const DEFAULT_TEMPLATES = [
       listener: {
         type: 'SMART_AI',
         prompt: 'You are a sales qualification assistant. When someone asks about pricing or purchasing, gather their requirements and offer to book a call. Be helpful but not pushy.',
-        dmReply: 'I\\'d love to help you with pricing! Let me ask a few quick questions to give you the best recommendation. What\\'s your main goal with our service?'
+        dmReply: "I'd love to help you with pricing! Let me ask a few quick questions to give you the best recommendation. What's your main goal with our service?"
       }
     }
   },
@@ -75,7 +75,7 @@ export const DEFAULT_TEMPLATES = [
       listener: {
         type: 'MESSAGE',
         commentReply: 'Glad you enjoyed this! 🔥',
-        dmReply: 'Since you\\'re interested in learning more, check out my latest tutorial: [LINK]. It goes deeper into this topic! 📚'
+        dmReply: "Since you're interested in learning more, check out my latest tutorial: [LINK]. It goes deeper into this topic! 📚"
       }
     }
   },
@@ -91,7 +91,7 @@ export const DEFAULT_TEMPLATES = [
       listener: {
         type: 'SMART_AI',
         prompt: 'You are a dedicated VIP customer success manager. Provide exceptional, personalized service. Always offer to connect them with a human team member for complex requests.',
-        dmReply: 'Thank you for being a valued customer! I\\'m here to ensure you have the best possible experience. How can I assist you today?'
+        dmReply: "Thank you for being a valued customer! I'm here to ensure you have the best possible experience. How can I assist you today?"
       }
     }
   }
@@ -100,17 +100,20 @@ export const DEFAULT_TEMPLATES = [
 export class TemplateService {
   static async seedDefaultTemplates() {
     for (const template of DEFAULT_TEMPLATES) {
-      await prisma.template.upsert({
-        where: { name: template.name },
-        create: {
-          ...template,
-          config: template.config as any
-        },
-        update: {
-          ...template,
-          config: template.config as any
-        }
-      });
+      const existing = await prisma.template.findFirst({ where: { name: template.name } });
+      const data = {
+        name: template.name,
+        description: template.description,
+        category: template.category as any,
+        tier: template.tier as any,
+        tags: template.tags,
+        config: template.config as any,
+      };
+      if (existing) {
+        await prisma.template.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.template.create({ data });
+      }
     }
   }
 

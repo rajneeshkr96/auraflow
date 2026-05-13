@@ -216,6 +216,7 @@ export async function getAnalyticsData() {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
+  const { AnalyticsService } = await import('@/lib/analytics');
   const [stats, weeklyData, performance] = await Promise.all([
     AnalyticsService.getDashboardStats(userId),
     AnalyticsService.getWeeklyData(userId),
@@ -229,5 +230,6 @@ export async function getUsageStats() {
   const userId = await getCurrentUserId();
   if (!userId) return null;
 
+  const { UsageTracker } = await import('@/lib/usage-tracker');
   return UsageTracker.getUsageStats(userId);
 }
