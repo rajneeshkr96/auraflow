@@ -22,6 +22,8 @@ export async function GET(req: Request) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
+import { after } from "next/server";
+
 // ── Webhook Events ────────────────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
@@ -30,9 +32,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: 404 }, { status: 404 });
     }
 
-    await processWebhook(body).catch((err) =>
-      console.error("[Webhook] Processing error:", err)
-    );
+    // Schedule the processing to run in the background (Vercel Serverless).
+    // This allows us to instantly return 200 OK to Instagram so it doesn't timeout
+    // and trigger infinite retries while the Neural API is thinking.
+    after(() => {
+      processWebhook(body).catch((err) =>
+        console.error("[Webhook] Processing error:", err)
+      );
+    });
 
     return NextResponse.json({ received: true }, { status: 200 });
   } catch {
@@ -100,6 +107,24 @@ async function handleDm(instagramAccountId: string, event: any) {
     create: { userId: integration.userId, recipientId: senderId, integrationId: integration.id },
     update: {},
   });
+
+  // Deduplication check: Instagram retries webhooks if AI takes too long.
+  // We check if this exact text from the same user was received in the last 2 minutes.
+  const recentMsg = await prisma.message.findFirst({
+    where: {
+      conversationId: conversation.id,
+      role: "USER",
+      content: messageText,
+      createdAt: {
+        gte: new Date(Date.now() - 2 * 60 * 1000), // last 2 mins
+      },
+    },
+  });
+
+  if (recentMsg) {
+    console.log("[DM] ⏭️ Skipping duplicate message (Instagram retry loop prevented)");
+    return;
+  }
 
   await prisma.message.create({
     data: { conversationId: conversation.id, role: "USER", content: messageText },
