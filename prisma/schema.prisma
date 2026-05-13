@@ -102,6 +102,7 @@ model Message {
   id             String       @id @default(auto()) @map("_id") @db.ObjectId
   role           MessageRole
   content        String
+  mid            String?      // Instagram message ID — used for deduplication
   inputTokens    Int?
   outputTokens   Int?
   createdAt      DateTime     @default(now())
@@ -129,6 +130,16 @@ enum MessageRole {
   USER
   ASSISTANT
   SYSTEM
+}
+
+// ── Webhook Deduplication ────────────────────────────────────────────────────
+// Stores processed Instagram comment IDs to prevent re-processing on retries
+model ProcessedComment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  commentId String   @unique
+  createdAt DateTime @default(now())
+
+  @@map("processed_comments")
 }
 
 // ── Usage Tracking & Limits ──────────────────────────────────────────────────

@@ -5,8 +5,6 @@ import { getOrCreateNeuralAgent, chatWithAgent } from "@/lib/neural";
 
 const VERIFY_TOKEN = process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || "auraflow_token";
 
-// ── Tell Vercel to allow up to 30s for this function ─────────────────────────
-// Required so processWebhook (DB + Instagram API calls) has time to complete
 export const maxDuration = 30;
 
 // ── Webhook Verification ──────────────────────────────────────────────────────
@@ -22,66 +20,80 @@ export async function GET(req: Request) {
   return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 }
 
-import { after } from "next/server";
-
 // ── Webhook Events ────────────────────────────────────────────────────────────
+// CRITICAL: Always return 200 immediately.
+// If Instagram doesn't get 200 within ~5s it retries — causing infinite loops.
+// We fire-and-forget processWebhook in the background.
 export async function POST(req: Request) {
+  let body: any;
   try {
-    const body = await req.json();
-    if (body.object !== "instagram") {
-      return NextResponse.json({ status: 404 }, { status: 404 });
-    }
-
-    // Schedule the processing to run in the background (Vercel Serverless).
-    // This allows us to instantly return 200 OK to Instagram so it doesn't timeout
-    // and trigger infinite retries while the Neural API is thinking.
-    after(() => {
-      processWebhook(body).catch((err) =>
-        console.error("[Webhook] Processing error:", err)
-      );
-    });
-
-    return NextResponse.json({ received: true }, { status: 200 });
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    // Malformed body — ack anyway so Instagram doesn't retry
+    return NextResponse.json({ received: true }, { status: 200 });
   }
+
+  if (body.object !== "instagram") {
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // Fire-and-forget — never await, never let it block the 200 response
+  processWebhook(body).catch((err) =>
+    console.error("[Webhook] Processing error:", err)
+  );
+
+  // Instagram requires 200 back FAST — return before any DB/AI work
+  return NextResponse.json({ received: true }, { status: 200 });
 }
 
 // ── Core Processing ───────────────────────────────────────────────────────────
 async function processWebhook(body: any) {
-  console.log("[Webhook] processWebhook start. object:", body.object, "entries:", body.entry?.length);
+  console.log("[Webhook] start. entries:", body.entry?.length);
+
   for (const entry of body.entry ?? []) {
     const instagramAccountId: string = entry.id;
-    console.log("[Webhook] entry.id:", instagramAccountId, "has messaging:", !!entry.messaging, "has changes:", !!entry.changes);
 
     if (entry.messaging) {
       for (const event of entry.messaging) {
-        console.log("[Webhook] DM event:", JSON.stringify(event).slice(0, 200));
-        await handleDm(instagramAccountId, event);
+        await handleDm(instagramAccountId, event).catch((e) =>
+          console.error("[Webhook] handleDm error:", e)
+        );
       }
     }
 
     if (entry.changes) {
       for (const change of entry.changes) {
-        console.log("[Webhook] change.field:", change.field);
         if (change.field === "comments") {
-          await handleComment(instagramAccountId, change.value);
+          await handleComment(instagramAccountId, change.value).catch((e) =>
+            console.error("[Webhook] handleComment error:", e)
+          );
         }
       }
     }
   }
-  console.log("[Webhook] processWebhook done.");
 }
 
 // ── DM Handler ────────────────────────────────────────────────────────────────
 async function handleDm(instagramAccountId: string, event: any) {
   const senderId: string = event.sender?.id;
   const messageText: string = event.message?.text;
+  const mid: string = event.message?.mid;
 
-  console.log("[DM] sender:", senderId, "| is_echo:", event.message?.is_echo, "| text:", messageText);
+  // ── Loop guard 1: skip echoes (our own sent messages come back as echoes)
+  if (event.message?.is_echo) {
+    console.log("[DM] Skipped — echo");
+    return;
+  }
 
-  if (event.message?.is_echo || !messageText || senderId === instagramAccountId) {
-    console.log("[DM] Skipped — echo / no text / self");
+  // ── Loop guard 2: skip if no text (reactions, stickers, etc.)
+  if (!messageText?.trim()) {
+    console.log("[DM] Skipped — no text");
+    return;
+  }
+
+  // ── Loop guard 3: skip if sender is the account itself
+  if (senderId === instagramAccountId) {
+    console.log("[DM] Skipped — self message");
     return;
   }
 
@@ -94,13 +106,9 @@ async function handleDm(instagramAccountId: string, event: any) {
     },
   });
   if (!integration) {
-    console.error("[DM] ❌ No integration found for instagramId:", instagramAccountId);
-    // Log all stored IDs to help diagnose
-    const all = await prisma.integration.findMany({ select: { instagramId: true, pageId: true, userId: true } });
-    console.error("[DM] Stored integrations:", JSON.stringify(all));
+    console.error("[DM] No integration for:", instagramAccountId);
     return;
   }
-  console.log("[DM] ✅ Integration found | userId:", integration.userId, "| instagramId:", integration.instagramId, "| pageId:", integration.pageId);
 
   const conversation = await prisma.conversation.upsert({
     where: { userId_recipientId: { userId: integration.userId, recipientId: senderId } },
@@ -108,71 +116,72 @@ async function handleDm(instagramAccountId: string, event: any) {
     update: {},
   });
 
-  // Deduplication check: Instagram retries webhooks if AI takes too long.
-  // We check if this exact text from the same user was received in the last 2 minutes.
-  const recentMsg = await prisma.message.findFirst({
+  // ── Loop guard 4: dedup by message ID (mid) — Instagram retries send the same mid
+  if (mid) {
+    const alreadyProcessed = await prisma.message.findFirst({
+      where: { conversationId: conversation.id, mid },
+    });
+    if (alreadyProcessed) {
+      console.log("[DM] Skipped — duplicate mid:", mid);
+      return;
+    }
+  }
+
+  // ── Loop guard 5: dedup by content+time window (fallback when mid is absent)
+  const recentDup = await prisma.message.findFirst({
     where: {
       conversationId: conversation.id,
       role: "USER",
       content: messageText,
-      createdAt: {
-        gte: new Date(Date.now() - 2 * 60 * 1000), // last 2 mins
-      },
+      createdAt: { gte: new Date(Date.now() - 2 * 60 * 1000) },
     },
   });
-
-  if (recentMsg) {
-    console.log("[DM] ⏭️ Skipping duplicate message (Instagram retry loop prevented)");
+  if (recentDup) {
+    console.log("[DM] Skipped — duplicate content within 2 min");
     return;
   }
 
+  // Record the inbound message (with mid for future dedup)
   await prisma.message.create({
-    data: { conversationId: conversation.id, role: "USER", content: messageText },
+    data: { conversationId: conversation.id, role: "USER", content: messageText, mid: mid ?? null },
   });
 
   const automations = await prisma.automation.findMany({
     where: { userId: integration.userId, active: true },
     include: { triggers: true, keywords: true, listener: true },
   });
-  console.log("[DM] Active automations:", automations.length);
 
   const automation = matchAutomation(automations, "DM", messageText);
   if (!automation?.listener) {
-    console.log("[DM] ❌ No automation matched for:", messageText);
+    console.log("[DM] No automation matched for:", messageText);
     return;
   }
-  console.log("[DM] ✅ Matched:", automation.name, "| type:", automation.listener.listener);
-
-  // Skip usage limit check — tier enforcement is handled client-side via useAuraflowAccess
-  // Server-side tier lookup requires a subscription API call; skip for webhook performance
-
+  console.log("[DM] Matched:", automation.name, "| type:", automation.listener.listener);
 
   const { listener } = automation;
 
   if (listener.listener === "MESSAGE") {
     const reply = listener.dmReply || "Thanks!";
-    console.log("[DM] Sending MESSAGE reply:", reply);
     await sendDm(integration.token, senderId, reply, integration.pageId, integration.instagramId);
     await logAssistant(conversation.id, reply);
-    console.log("[DM] ✅ Done.");
+    console.log("[DM] ✅ MESSAGE reply sent");
   } else if (listener.listener === "SMART_AI") {
     console.log("[DM] Getting SMART_AI agent...");
     const agentId = await getOrCreateNeuralAgent(
       listener.id,
       integration.userId,
-      listener.prompt || 'You are a helpful Instagram DM assistant.',
+      listener.prompt || "You are a helpful Instagram DM assistant.",
       automation.name,
-      listener.neuralKbId ?? undefined
+      (listener as any).neuralKbId ?? undefined
     );
     const sessionId = `auraflow-dm-${conversation.id}`;
     const aiReply = await chatWithAgent(agentId, messageText, sessionId);
-    console.log("[DM] AI reply:", aiReply?.slice(0, 100));
+    console.log("[DM] AI reply:", aiReply?.slice(0, 80));
     await sendDm(integration.token, senderId, aiReply, integration.pageId, integration.instagramId);
     await logAssistant(conversation.id, aiReply);
-    console.log("[DM] ✅ Done.");
+    console.log("[DM] ✅ SMART_AI reply sent");
   }
 }
-
 
 // ── Comment Handler ───────────────────────────────────────────────────────────
 async function handleComment(instagramAccountId: string, value: any) {
@@ -181,9 +190,27 @@ async function handleComment(instagramAccountId: string, value: any) {
   const mediaId: string = value.media?.id;
   const commentId: string = value.id;
 
-  // Guard: skip own comments and events with missing required fields
-  if (!commenterId || !commentText || !commentId) return;
-  if (commenterId === instagramAccountId) return;
+  // ── Loop guard 1: skip if missing required fields
+  if (!commenterId || !commentText?.trim() || !commentId) return;
+
+  // ── Loop guard 2: skip own comments (our replies fire another change event)
+  if (commenterId === instagramAccountId) {
+    console.log("[Comment] Skipped — own comment");
+    return;
+  }
+
+  // ── Loop guard 3: dedup by commentId — Instagram retries send the same id
+  const alreadyHandled = await prisma.processedComment.findUnique({
+    where: { commentId },
+  }).catch(() => null); // table may not exist yet — safe fallback
+
+  if (alreadyHandled) {
+    console.log("[Comment] Skipped — already processed:", commentId);
+    return;
+  }
+
+  // Mark as processed immediately (before any async work) to prevent race conditions
+  await prisma.processedComment.create({ data: { commentId } }).catch(() => null);
 
   const integration = await prisma.integration.findFirst({
     where: {
@@ -212,7 +239,7 @@ async function handleComment(instagramAccountId: string, value: any) {
     const agentId = await getOrCreateNeuralAgent(
       listener.id,
       integration.userId,
-      listener.prompt || 'You are a helpful Instagram assistant replying to comments.',
+      listener.prompt || "You are a helpful Instagram assistant replying to comments.",
       automation.name
     );
     replyText = await chatWithAgent(agentId, commentText, `auraflow-comment-${commentId}`);
@@ -225,6 +252,8 @@ async function handleComment(instagramAccountId: string, value: any) {
   if (listener.dmReply) {
     await sendDm(integration.token, commenterId, listener.dmReply, integration.pageId, integration.instagramId);
   }
+
+  console.log("[Comment] ✅ Done for commentId:", commentId);
 }
 
 // ── Matching Logic ────────────────────────────────────────────────────────────
@@ -235,19 +264,17 @@ function matchAutomation(
   mediaId?: string
 ) {
   let best: any = null;
-  let bestKeywordLen = 0;   // prefer longer (more specific) keyword matches
+  let bestKeywordLen = 0;
   let fallback: any = null;
 
   for (const auto of automations) {
     if (!auto.triggers.some((t: any) => t.type === triggerType)) continue;
 
-    // For COMMENT: skip automations scoped to other posts
     if (triggerType === "COMMENT" && auto.posts?.length > 0) {
       if (!auto.posts.some((p: any) => p.postid === mediaId)) continue;
     }
 
     if (auto.keywords.length > 0) {
-      // Pick the longest keyword that matches — longer = more specific
       const matched = auto.keywords
         .filter((k: any) => text.toLowerCase().includes(k.word.toLowerCase()))
         .sort((a: any, b: any) => b.word.length - a.word.length)[0];
@@ -257,7 +284,6 @@ function matchAutomation(
         bestKeywordLen = matched.word.length;
       }
     } else {
-      // Universal fallback — only used if no keyword match found at all
       if (!fallback) fallback = auto;
     }
   }
@@ -273,16 +299,9 @@ async function sendDm(
   pageId?: string | null,
   instagramId?: string | null
 ) {
-  // Guard: never send if required fields are missing or text is empty
-  if (!token || !recipientId || !text.trim()) {
-    console.warn("[Webhook] sendDm skipped — missing token, recipientId, or text");
-    return;
-  }
-
-  // Instagram Business Login: use instagramId with graph.instagram.com
-  // Facebook Login:           use pageId with graph.facebook.com
+  if (!token || !recipientId || !text.trim()) return;
   if (!pageId && !instagramId) {
-    console.error("[Webhook] sendDm skipped — neither pageId nor instagramId is available");
+    console.error("[Webhook] sendDm skipped — no pageId or instagramId");
     return;
   }
 
@@ -291,39 +310,21 @@ async function sendDm(
     : `https://graph.instagram.com/v21.0/${instagramId}/messages`;
 
   await axios
-    .post(
-      baseUrl,
-      { recipient: { id: recipientId }, message: { text } },
-      { params: { access_token: token } }
-    )
+    .post(baseUrl, { recipient: { id: recipientId }, message: { text } }, { params: { access_token: token } })
     .catch((e) => console.error("[Webhook] DM send error:", e.response?.data || e.message));
 }
 
 async function sendCommentReply(token: string, commentId: string, text: string) {
-  // Guard: never send if required fields are missing or text is empty
-  if (!token || !commentId || !text.trim()) {
-    console.warn("[Webhook] sendCommentReply skipped — missing token, commentId, or text");
-    return;
-  }
+  if (!token || !commentId || !text.trim()) return;
 
-  // Both flows use same URL structure — token type determines which host works
-  const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
-  const baseUrl = useInstagramLogin
-    ? `https://graph.instagram.com/v21.0/${commentId}/replies`
-    : `https://graph.facebook.com/v21.0/${commentId}/replies`;
+  const baseUrl = `https://graph.instagram.com/v21.0/${commentId}/replies`;
 
   await axios
-    .post(
-      baseUrl,
-      { message: text },
-      { params: { access_token: token } }
-    )
+    .post(baseUrl, { message: text }, { params: { access_token: token } })
     .catch((e) => console.error("[Webhook] Comment reply error:", e.response?.data || e.message));
 }
 
 async function logAssistant(conversationId: string, content: string) {
-  // Wrap in try/catch so a DB failure doesn't crash the handler after the reply
-  // has already been sent successfully to Instagram
   try {
     await prisma.message.create({
       data: { conversationId, role: "ASSISTANT", content },
@@ -332,6 +333,3 @@ async function logAssistant(conversationId: string, content: string) {
     console.error("[Webhook] Failed to log assistant message:", e);
   }
 }
-
-// ── NeuralHub AI ─────────────────────────────────────────────────────────────
-// Handled by lib/neural.ts — getOrCreateNeuralAgent() + chatWithAgent()

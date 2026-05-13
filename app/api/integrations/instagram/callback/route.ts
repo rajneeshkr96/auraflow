@@ -64,27 +64,14 @@ export async function GET(req: Request) {
       });
       accessToken = longRes.data.access_token;
 
-      // Step 3: Use long-lived token to get the Instagram Business Account ID
-      // This returns the same ID that Meta sends in webhook entry.id
+      // Step 3: Get the Instagram Business Account ID from /me
+      // NOTE: instagram_business_account is a Facebook Graph API field — it does NOT exist on
+      // graph.instagram.com. With Instagram Business Login the /me id IS the Business Account ID.
       const meRes = await axios.get("https://graph.instagram.com/v21.0/me", {
-        params: { fields: "id,username,instagram_business_account", access_token: accessToken },
+        params: { fields: "id,username,name", access_token: accessToken },
       });
       instagramId = String(meRes.data.id);
-      console.log("[OAuth] Instagram /me → id:", instagramId, "username:", meRes.data.username);
-
-      // If the /me id still doesn't match webhook format, try fetching via Graph API
-      // The webhook sends the Instagram Business Account ID (not app-scoped user ID)
-      try {
-        const igAccountRes = await axios.get(`https://graph.facebook.com/v21.0/${instagramId}`, {
-          params: { fields: "id,username", access_token: accessToken },
-        });
-        if (igAccountRes.data.id) {
-          instagramId = String(igAccountRes.data.id);
-          console.log("[OAuth] Graph API confirmed instagramId:", instagramId);
-        }
-      } catch {
-        // keep the /me id
-      }
+      console.log("[OAuth] Instagram Business Login /me → instagramId:", instagramId, "username:", meRes.data.username);
     } else {
       // ── Facebook Login flow ──────────────────────────────────────────
       const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
