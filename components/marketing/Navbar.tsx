@@ -3,16 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { LayoutGrid, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-
+import { useCSWUser } from '@codeswayam/auth';
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUrl, setCurrentUrl] = useState('');
+  const { isSignedIn } = useCSWUser();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     setCurrentUrl(window.location.href);
-    setIsAuthenticated(document.cookie.includes('Authentication='));
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -57,7 +56,7 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-3 ml-auto md:ml-0">
-          {isAuthenticated ? (
+          {isSignedIn ? (
             <Link href="/dashboard" className="group flex items-center gap-2 px-5 py-2.5 bg-foreground text-background text-sm font-bold rounded-full transition-all hover:scale-105 active:scale-95">
               Dashboard
               <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />

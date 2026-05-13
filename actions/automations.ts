@@ -23,6 +23,7 @@ export async function getAutomationStats() {
   const userId = await getCurrentUserId();
   if (!userId) return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
 
+  // Use simple counts for now to avoid analytics dependency
   const [total, active, triggers] = await Promise.all([
     prisma.automation.count({ where: { userId } }),
     prisma.automation.count({ where: { userId, active: true } }),
@@ -31,7 +32,12 @@ export async function getAutomationStats() {
     }),
   ]);
 
-  return { totalAutomations: total, activeAutomations: active, totalTriggers: triggers, totalReplies: 0 };
+  return { 
+    totalAutomations: total, 
+    activeAutomations: active, 
+    totalTriggers: triggers,
+    totalReplies: 0 // Will be updated when analytics is fully set up
+  };
 }
 
 export async function getAutomationById(id: string) {
@@ -47,6 +53,18 @@ export async function getAutomationById(id: string) {
 export async function createAutomation(name?: string) {
   const userId = await getCurrentUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
+
+  // Simple automation count check for now
+  const currentCount = await prisma.automation.count({ where: { userId } });
+  const freeLimit = 5; // Free tier limit
+  
+  if (currentCount >= freeLimit) {
+    return { 
+      success: false, 
+      error: `Automation limit reached (${currentCount}/${freeLimit}). Upgrade to create more automations.`,
+      needsUpgrade: true
+    };
+  }
 
   const automation = await prisma.automation.create({
     data: { userId, name: name?.trim() || "Untitled" },
@@ -191,4 +209,25 @@ export async function deleteAutomation(id: string) {
 
 export async function toggleAutomation(id: string, active: boolean) {
   return updateAutomation(id, { active });
+}
+
+// New analytics actions
+export async function getAnalyticsData() {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  const [stats, weeklyData, performance] = await Promise.all([
+    AnalyticsService.getDashboardStats(userId),
+    AnalyticsService.getWeeklyData(userId),
+    AnalyticsService.getAutomationPerformance(userId)
+  ]);
+
+  return { stats, weeklyData, performance };
+}
+
+export async function getUsageStats() {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  return UsageTracker.getUsageStats(userId);
 }

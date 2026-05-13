@@ -244,13 +244,12 @@ export default function AutomationsClient({ automations: initial }: { automation
                                         {isAI && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary text-white px-3 py-1 rounded-full">Smart AI</span>}
                                     </div>
                                     {isNew && (
-                                        <div onClick={e => e.preventDefault()} className="mb-6">
-                                            <Link
-                                                href={`/automations/${automation.id}`}
+                                        <div className="mb-6">
+                                            <div
                                                 className="flex items-center justify-center gap-2 w-full h-10 bg-primary text-white text-[11px] font-bold uppercase tracking-widest rounded-2xl hover:bg-primary/90 transition-all"
                                             >
                                                 <Zap className="w-3.5 h-3.5" /> Setup Flow to Activate
-                                            </Link>
+                                            </div>
                                         </div>
                                     )}
                                     <div className="flex items-center justify-between pt-6 border-t border-border">

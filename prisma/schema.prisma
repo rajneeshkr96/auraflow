@@ -130,3 +130,132 @@ enum MessageRole {
   ASSISTANT
   SYSTEM
 }
+
+// ── Usage Tracking & Limits ──────────────────────────────────────────────────
+model SubscriptionUsage {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            Int      @unique
+  automationsUsed   Int      @default(0)
+  dmsThisMonth      Int      @default(0)
+  commentsThisMonth Int      @default(0)
+  triggersThisMonth Int      @default(0)
+  resetDate         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("subscription_usage")
+}
+
+// ── Template System ──────────────────────────────────────────────────────────
+model Template {
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String
+  category    TemplateCategory
+  tier        TemplateTier
+  config      Json         // automation configuration
+  tags        String[]
+  featured    Boolean      @default(false)
+  usageCount  Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("templates")
+}
+
+// ── Team Management ──────────────────────────────────────────────────────────
+model Team {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  ownerId   Int
+  plan      String       @default("enterprise")
+  members   TeamMember[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id     String   @id @default(auto()) @map("_id") @db.ObjectId
+  teamId String   @db.ObjectId
+  userId Int
+  role   TeamRole
+  team   Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+// ── Analytics & Metrics ──────────────────────────────────────────────────────
+model AnalyticsEvent {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId       Int
+  eventType    EventType
+  automationId String?     @db.ObjectId
+  metadata     Json?
+  timestamp    DateTime    @default(now())
+
+  @@map("analytics_events")
+}
+
+model DailyStats {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        Int
+  date          DateTime
+  triggers      Int      @default(0)
+  dmsSent       Int      @default(0)
+  commentsSent  Int      @default(0)
+  conversions   Int      @default(0)
+
+  @@unique([userId, date])
+  @@map("daily_stats")
+}
+
+// ── AI Agent Management ──────────────────────────────────────────────────────
+model AIAgent {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       Int
+  name         String
+  personality  String
+  instructions String
+  neuralId     String?  // Neural API agent ID
+  kbId         Int?     // Knowledge base ID
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("ai_agents")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+enum TemplateCategory {
+  LEAD_GENERATION
+  CUSTOMER_SUPPORT
+  ENGAGEMENT
+  SALES
+  CONTENT_PROMOTION
+}
+
+enum TemplateTier {
+  FREE
+  STANDARD
+  PRO
+  ENTERPRISE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum EventType {
+  AUTOMATION_TRIGGERED
+  DM_SENT
+  COMMENT_REPLIED
+  CONVERSION
+  LOGIN
+  TEMPLATE_USED
+}

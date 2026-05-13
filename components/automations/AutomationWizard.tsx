@@ -86,8 +86,8 @@ export default function AutomationWizard({
 
         setSaving(false);
         if (result.success) {
-            toast.success('Automation created and activated!');
-            router.push('/automations');
+            toast.success('Automation created! Configure your AI agent below.');
+            router.push(`/automations/${automationId}`);
         } else {
             toast.error(result.error || 'Failed to save automation');
         }
@@ -329,7 +329,7 @@ function StepAction({ form, update }: { form: WizardState; update: (k: keyof Wiz
                     />
                     <div className="flex items-start gap-2 p-3 bg-violet-50 rounded-lg">
                         <Sparkles className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
-                        <p className="text-xs text-violet-700">The AI will use this prompt as context to craft personalized, intelligent responses to every message.</p>
+                        <p className="text-xs text-violet-700">Your AI agent will be provisioned automatically on first trigger. After saving, open the automation editor to test your agent and configure Knowledge Base &amp; guardrails in NeuralHub.</p>
                     </div>
                 </div>
             )}

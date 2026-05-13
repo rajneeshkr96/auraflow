@@ -118,6 +118,10 @@ async function handleDm(instagramAccountId: string, event: any) {
   }
   console.log("[DM] ✅ Matched:", automation.name, "| type:", automation.listener.listener);
 
+  // Skip usage limit check — tier enforcement is handled client-side via useAuraflowAccess
+  // Server-side tier lookup requires a subscription API call; skip for webhook performance
+
+
   const { listener } = automation;
 
   if (listener.listener === "MESSAGE") {

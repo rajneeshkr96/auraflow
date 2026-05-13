@@ -79,11 +79,25 @@ const TIER_CONFIG: Record<AuraflowTier, TierConfig> = {
 
 // ── Resolve tier from subscription planTier string ────────────────────────────
 
-function resolveTier(planTier?: string | null): AuraflowTier {
-  const t = (planTier || "free").toLowerCase();
-  if (t.includes("enterprise")) return "enterprise";
-  if (t.includes("pro")) return "pro";
-  if (t.includes("standard")) return "standard";
+function resolveTier(sub: any): AuraflowTier {
+  // Check every field that might carry the tier name
+  const candidates = [
+    sub?.planTier,
+    sub?.planName,
+    sub?.productName,
+    sub?.bundleName,
+    sub?.plan,
+    sub?.tier,
+  ]
+    .filter(Boolean)
+    .map((v: string) => v.toLowerCase())
+    .join(" ");
+
+  if (candidates.includes("enterprise")) return "enterprise";
+  if (candidates.includes("pro")) return "pro";
+  if (candidates.includes("standard")) return "standard";
+  // If subscribed but tier unrecognised, grant pro (paid user)
+  if (sub) return "pro";
   return "free";
 }
 
@@ -138,7 +152,7 @@ export function useAuraflowAccess(): AuraflowAccess {
           s.planType === "BUNDLE")
     );
 
-    const tier = resolveTier((activeSub as any)?.planTier ?? (activeSub ? "pro" : "free"));
+    const tier = resolveTier(activeSub);
     const config = TIER_CONFIG[tier];
     const aiCallCost = config.aiIncluded ? 0 : AI_REPLY_POINT_COST;
 

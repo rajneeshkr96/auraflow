@@ -8,12 +8,14 @@
     "start": "next start -p 3004",
     "lint": "next lint",
     "db:generate": "prisma generate",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "db:migrate": "tsx scripts/migrate-features.ts",
+    "seed:templates": "tsx -e \"import('./lib/templates').then(m => m.TemplateService.seedDefaultTemplates())\""
   },
   "dependencies": {
     "@codeswayam/analytics": "^0.1.1",
     "@codeswayam/api-client": "^1.2.6",
-    "@codeswayam/auth": "^2.3.1",
+    "@codeswayam/auth": "^2.5.0",
     "@codeswayam/neural": "^1.0.2",
     "@codeswayam/ui": "^1.1.1",
     "@prisma/client": "^6.19.3",

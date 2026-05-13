@@ -88,7 +88,13 @@ export async function chatWithAgent(
   sessionId: string
 ): Promise<string> {
   try {
-    const result = await getNeuralClient().agents.chat(agentId, message, { sessionId });
+    // Ensure agentId is a numeric string for the REST endpoint
+    const numericId = parseInt(agentId);
+    if (isNaN(numericId)) {
+      console.error('[Auraflow Neural] Invalid agentId (not numeric):', agentId);
+      return "I'm here to help!";
+    }
+    const result = await getNeuralClient().agents.chat(String(numericId), message, { sessionId });
     return result.text || "I'm here to help!";
   } catch (err: any) {
     console.error('[Auraflow Neural] Chat error:', err.message);

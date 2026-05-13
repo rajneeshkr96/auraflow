@@ -21,6 +21,7 @@ type User = {
 const appNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Automations", icon: Zap, href: "/automations" },
+  { label: "Templates", icon: Sparkles, href: "/templates", badge: "New" },
   { label: "Analytics", icon: BarChart3, href: "/analytics", badge: "Beta" },
   { label: "Integrations", icon: Plug, href: "/integrations" },
   { label: "Settings", icon: Settings, href: "/settings" },

@@ -17,6 +17,7 @@ import { updateAutomation, deleteAutomation } from '@/actions/automations';
 import { toast } from 'sonner';
 import PostSelector from './post-selector';
 import { useAuraflowAccess } from '@/lib/use-auraflow-access';
+import AgentPanel from './AgentPanel';
 import Link from 'next/link';
 
 type Props = { initialData: any; automationId: string }
@@ -345,49 +346,24 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                                 </div>
                             )}
 
-                            {selectedNode.data.listenerType === 'SMART_AI' && (
+                            {selectedNode.data.listenerType === 'SMART_AI' && initialData.listener?.id && (
+                                <AgentPanel
+                                    listenerId={initialData.listener.id}
+                                    automationId={automationId}
+                                    initialPrompt={selectedNode.data.prompt as string || ''}
+                                />
+                            )}
+                            {selectedNode.data.listenerType === 'SMART_AI' && !initialData.listener?.id && (
                                 <div className="space-y-4">
                                     <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">AI Brain Configuration</Label>
                                     <Textarea
-                                        rows={8}
-                                        placeholder="Instruction your AI..."
+                                        rows={6}
+                                        placeholder="You are a helpful Instagram assistant. Reply naturally and concisely..."
                                         value={selectedNode.data.prompt as string}
                                         onChange={e => updateNodeData('prompt', e.target.value)}
                                         className="rounded-[32px] border-border bg-foreground text-background font-mono p-8 resize-none text-sm"
                                     />
-                                    <div className="bg-primary/10 p-6 rounded-[24px] flex items-start gap-4">
-                                       <Bot className="w-6 h-6 text-primary shrink-0" />
-                                       <p className="text-xs font-bold text-primary leading-relaxed">AI will use this prompt to generate unique, context-aware responses to every user.</p>
-                                    </div>
-
-                                    {/* Knowledge Base — deep link to neural-web */}
-                                    <div className="pt-4 border-t border-border space-y-3">
-                                        <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Knowledge Base (RAG)</Label>
-                                        <div className="p-5 rounded-[24px] border border-border bg-secondary/30 space-y-3">
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Upload your product catalog, FAQs, or business docs so the AI answers from your actual content.
-                                            </p>
-                                            <a
-                                                href={`${process.env.NEXT_PUBLIC_NEURAL_WEB_URL || 'http://localhost:3008'}/knowledge-base`}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center justify-between w-full px-5 py-3 rounded-2xl bg-primary text-white text-xs font-bold hover:bg-primary/90 transition-all"
-                                            >
-                                                <span>Manage Knowledge Base</span>
-                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                                            </a>
-                                            <p className="text-[10px] text-muted-foreground text-center">
-                                                After uploading docs, copy the KB ID and paste it below.
-                                            </p>
-                                            <input
-                                                type="number"
-                                                placeholder="KB ID from NeuralHub (optional)"
-                                                value={selectedNode.data.kbId as string || ''}
-                                                onChange={e => updateNodeData('kbId', e.target.value ? Number(e.target.value) : undefined)}
-                                                className="w-full px-4 py-2.5 rounded-2xl border border-border bg-background text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
-                                            />
-                                        </div>
-                                    </div>
+                                    <p className="text-xs text-muted-foreground">Save the automation first to unlock the full AI Agent panel.</p>
                                 </div>
                             )}
 

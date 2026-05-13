@@ -3,8 +3,10 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Star, MessageSquare, Zap, Bot, ChevronRight, Globe, Shield, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useCSWUser } from '@codeswayam/auth';
 
 const Hero: React.FC = () => {
+  const { isSignedIn } = useCSWUser();
   return (
     <section className="relative pt-44 pb-24 px-6 bg-background overflow-hidden">
       {/* Background elements inspired by UnboundX */}
@@ -48,10 +50,17 @@ const Hero: React.FC = () => {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center gap-6 justify-center"
         >
-          <Link href="/signup" className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
-            Start growing now
-            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </Link>
+          {isSignedIn ? (
+            <Link href="/dashboard" className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
+              Go to Dashboard
+              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          ) : (
+            <Link href="/signup" className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
+              Start growing now
+              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          )}
           <button className="h-16 px-10 bg-white border border-border text-foreground font-bold rounded-full hover:bg-secondary transition-all flex items-center gap-2 text-lg">
             Watch Demo
           </button>
