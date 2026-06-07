@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   LayoutDashboard, Zap, Plug, BarChart3, Settings,
-  Sparkles, ChevronRight, Crown
+  Sparkles, ChevronRight, Crown, ShieldCheck, Database,
+  Inbox, Activity,
 } from "lucide-react";
 import { useCSWSubscriptions } from "@codeswayam/auth";
 import { motion } from "framer-motion";
@@ -15,12 +16,15 @@ type User = {
   id?: number;
   name?: string | null;
   email?: string | null;
+  role?: string | null;
   subscription?: { plan?: string } | null;
 }
 
 const appNavItems = [
   { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "Inbox", icon: Inbox, href: "/inbox" },
   { label: "Automations", icon: Zap, href: "/automations" },
+  { label: "Execution Logs", icon: Activity, href: "/logs" },
   { label: "Templates", icon: Sparkles, href: "/templates", badge: "New" },
   { label: "Analytics", icon: BarChart3, href: "/analytics", badge: "Beta" },
   { label: "Integrations", icon: Plug, href: "/integrations" },
@@ -102,6 +106,41 @@ export default function Sidebar({ user }: { user?: User | null }) {
             </Link>
           );
         })}
+
+        {/* Admin section — only for admin/superadmin */}
+        {(user?.role === "admin" || user?.role === "superadmin") && (
+          <div className="pt-4 mt-2 border-t border-dashed border-border/50">
+            <div className="px-4 pb-3">
+              <p className="text-[10px] font-bold text-primary/60 uppercase tracking-[0.2em] flex items-center gap-1.5">
+                <ShieldCheck className="w-3 h-3" />
+                Admin
+              </p>
+            </div>
+            {[{ label: "Model Requests", icon: Database, href: "/admin/model-requests" }].map((item) => {
+              const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "group flex items-center gap-4 px-4 py-3 rounded-2xl text-sm font-bold transition-all duration-200",
+                    isActive
+                      ? "bg-primary/10 text-primary shadow-sm"
+                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  )}
+                >
+                  <div className={cn(
+                    "w-6 h-6 flex items-center justify-center transition-colors",
+                    isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )}>
+                    <item.icon className="w-4 h-4" />
+                  </div>
+                  <span className="flex-1">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </nav>
 
       {/* Bottom Actions */}

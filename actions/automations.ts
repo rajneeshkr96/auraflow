@@ -154,20 +154,7 @@ export async function updateAutomation(
         update: listenerData,
       });
 
-      // If prompt changed and agent already exists, refresh it in background
-      if (
-        data.listenerType === 'SMART_AI' &&
-        data.prompt &&
-        upserted.neuralAgentId
-      ) {
-        const { refreshNeuralAgent } = await import('@/lib/neural');
-        refreshNeuralAgent(
-          upserted.id,
-          existing.userId,
-          data.prompt,
-          existing.name
-        ).catch(console.error);
-      }
+      // Neural agent handling is moved outside the transaction to prevent deadlocks
     }
 
     // 5. Posts
@@ -180,6 +167,22 @@ export async function updateAutomation(
       }
     }
   });
+
+  // 6. Neural Agent Provisioning & Updating (After Transaction)
+  if (data.listenerType === 'SMART_AI' && data.prompt) {
+    const listener = await prisma.listener.findUnique({ where: { automationId: id } });
+    if (listener) {
+      if (listener.neuralAgentId) {
+        // Agent exists — update prompt
+        const { updateNeuralAgentPrompt } = await import('@/lib/neural');
+        updateNeuralAgentPrompt(listener.neuralAgentId, data.prompt).catch(console.error);
+      } else {
+        // Agent does not exist — provision it immediately
+        const { getOrCreateNeuralAgent } = await import('@/lib/neural');
+        await getOrCreateNeuralAgent(listener.id, userId, data.prompt, data.name || existing.name || "Automation").catch(console.error);
+      }
+    }
+  }
 
   revalidatePath(`/automations/${id}`);
   revalidatePath("/automations");

@@ -1,12 +1,16 @@
 
+"use client";
+
 import React from 'react';
-
 import { Bot, Zap, MessageSquare, MousePointer2 } from 'lucide-react';
+import Link from 'next/link';
 import FeatureGrid from '@/components/marketing/FeatureGrid';
-
-
+import { useCSWUser } from '@codeswayam/auth';
+import { useAuthUrl } from '@/lib/use-auth-url';
 
 const FeaturesView: React.FC = () => {
+  const { isSignedIn } = useCSWUser();
+  const { getAuthUrl } = useAuthUrl();
   return (
     <div className="min-h-screen bg-white text-slate-900">
       <main className="">
@@ -19,11 +23,21 @@ const FeaturesView: React.FC = () => {
             <p className="text-lg text-slate-500 font-medium mb-12 max-w-2xl mx-auto">
               We've built the world's most intuitive social automation engine. Drag, drop, and watch your audience convert while you sleep.
             </p>
-            <button 
-              className="px-10 py-5 bg-slate-900 text-white font-bold rounded-full shadow-xl hover:scale-105 transition-all"
-            >
-              Start Building Now
-            </button>
+            {isSignedIn ? (
+              <Link 
+                href="/dashboard"
+                className="inline-block px-10 py-5 bg-slate-900 text-white font-bold rounded-full shadow-xl hover:scale-105 transition-all"
+              >
+                Start Building Now
+              </Link>
+            ) : (
+              <a 
+                href={getAuthUrl("/signup")}
+                className="inline-block px-10 py-5 bg-slate-900 text-white font-bold rounded-full shadow-xl hover:scale-105 transition-all"
+              >
+                Start Building Now
+              </a>
+            )}
           </div>
         </section>
 
@@ -75,12 +89,22 @@ const FeaturesView: React.FC = () => {
           <div className="max-w-4xl mx-auto">
             <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight">Ready to reclaim your time?</h2>
             <p className="text-indigo-100 text-lg font-medium mb-12">Join 4,000+ creators scaling their brands with Auraflow.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                className="px-8 py-4 bg-white text-indigo-600 font-black rounded-full hover:bg-slate-50 transition-all"
-              >
-                Create Free Account
-              </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              {isSignedIn ? (
+                <Link 
+                  href="/dashboard"
+                  className="px-8 py-4 bg-white text-indigo-600 font-black rounded-full hover:bg-slate-50 transition-all"
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <a 
+                  href={getAuthUrl("/signup")}
+                  className="px-8 py-4 bg-white text-indigo-600 font-black rounded-full hover:bg-slate-50 transition-all"
+                >
+                  Create Free Account
+                </a>
+              )}
               <button className="px-8 py-4 bg-indigo-700 text-white font-black rounded-full hover:bg-indigo-800 transition-all">
                 Talk to Sales
               </button>
@@ -88,7 +112,6 @@ const FeaturesView: React.FC = () => {
           </div>
         </section>
       </main>
-
     </div>
   );
 };

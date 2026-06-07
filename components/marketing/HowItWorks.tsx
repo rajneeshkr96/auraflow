@@ -2,6 +2,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Bot, CheckCircle2, ArrowRight, ChevronRight, Share2, Target, CreditCard } from 'lucide-react';
+import Link from 'next/link';
+import { useCSWUser } from '@codeswayam/auth';
+import { useAuthUrl } from '@/lib/use-auth-url';
 
 const steps = [
   { step: '01', title: 'Connect Instagram', desc: 'Link your account via Meta Business OAuth in under 60 seconds.', icon: Share2 },
@@ -10,6 +13,8 @@ const steps = [
 ];
 
 const HowItWorks: React.FC = () => {
+  const { isSignedIn } = useCSWUser();
+  const { getAuthUrl } = useAuthUrl();
   return (
     <section className="py-32 px-6 bg-background">
       <div className="max-w-7xl mx-auto">
@@ -54,10 +59,17 @@ const HowItWorks: React.FC = () => {
           viewport={{ once: true }}
           className="text-center mt-24"
         >
-          <button className="h-16 px-10 bg-foreground text-background font-bold rounded-full transition-all active:scale-95 flex items-center gap-2 mx-auto group">
-            Start Your Free Trial
-            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-          </button>
+          {isSignedIn ? (
+            <Link href="/dashboard" className="inline-flex h-16 px-10 bg-foreground text-background font-bold rounded-full transition-all active:scale-95 items-center gap-2 mx-auto group">
+              Start Your Free Trial
+              <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </Link>
+          ) : (
+            <a href={getAuthUrl("/signup")} className="inline-flex h-16 px-10 bg-foreground text-background font-bold rounded-full transition-all active:scale-95 items-center gap-2 mx-auto group">
+              Start Your Free Trial
+              <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </a>
+          )}
         </motion.div>
       </div>
     </section>

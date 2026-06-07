@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import '@/app/globals.css';
-import { CSWProvider } from '@codeswayam/auth';
 import { Analytics } from '@codeswayam/analytics';
+import { Providers } from '@/app/providers/providers';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -28,9 +28,9 @@ export default function RootLayout({
           metaPixelId={process.env.NEXT_PUBLIC_META_PIXEL_ID}
           appName="auraflow"
         />
-        <CSWProvider apiUrl={process.env.NEXT_PUBLIC_API_URL} ssoUrl={process.env.NEXT_PUBLIC_APP_AUTH_URL}>
+        <Providers>
           {children}
-        </CSWProvider>
+        </Providers>
       </body>
     </html>
   );

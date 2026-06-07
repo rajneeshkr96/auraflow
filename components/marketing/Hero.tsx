@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Star, MessageSquare, Zap, Bot, ChevronRight, Globe, Shield, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useCSWUser } from '@codeswayam/auth';
+import { useAuthUrl } from '@/lib/use-auth-url';
 
 const Hero: React.FC = () => {
   const { isSignedIn } = useCSWUser();
+  const { getAuthUrl } = useAuthUrl();
   return (
     <section className="relative pt-44 pb-24 px-6 bg-background overflow-hidden">
       {/* Background elements inspired by UnboundX */}
@@ -56,10 +58,10 @@ const Hero: React.FC = () => {
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </Link>
           ) : (
-            <Link href="/signup" className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
+            <a href={getAuthUrl("/signup")} className="group h-16 px-10 bg-primary text-white font-bold rounded-full transition-all flex items-center gap-3 shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 text-lg">
               Start growing now
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </Link>
+            </a>
           )}
           <button className="h-16 px-10 bg-white border border-border text-foreground font-bold rounded-full hover:bg-secondary transition-all flex items-center gap-2 text-lg">
             Watch Demo

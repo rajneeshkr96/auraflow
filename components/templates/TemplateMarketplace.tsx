@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Package, Search, Filter, Star, Download, Zap, MessageSquare, Bot, TrendingUp, Users } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@codeswayam/ui';
-import { Badge } from '@codeswayam/ui';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useTransition, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Package, Search, Star, Download, Zap, MessageSquare,
+  Bot, TrendingUp, Users, Lock, Sparkles, Crown, Loader2,
+  CheckCircle2, LayoutGrid, List,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useTransition as useT } from 'react';
+import { useTemplate } from '@/actions/templates';
+import Link from 'next/link';
 
 interface Template {
   id: string;
@@ -17,8 +20,8 @@ interface Template {
   category: string;
   tier: string;
   tags: string[];
-  featured: boolean;
-  usageCount: number;
+  featured?: boolean;
+  usageCount?: number;
 }
 
 interface Category {
@@ -27,270 +30,391 @@ interface Category {
   label: string;
 }
 
-interface TemplateMarketplaceProps {
+interface Props {
   templates: Template[];
   categories: Category[];
+  userTier?: string;
 }
 
-const categoryIcons = {
-  LEAD_GENERATION: TrendingUp,
-  CUSTOMER_SUPPORT: MessageSquare,
-  ENGAGEMENT: Users,
-  SALES: Zap,
-  CONTENT_PROMOTION: Star,
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const TIER_ORDER = ['FREE', 'STANDARD', 'PRO', 'ENTERPRISE'];
+
+const TIER_CONFIG: Record<string, { label: string; color: string; badgeCls: string; icon: any }> = {
+  FREE:       { label: 'Free',       color: '#10b981', badgeCls: 'bg-emerald-100 text-emerald-700',     icon: CheckCircle2 },
+  STANDARD:   { label: 'Standard',   color: '#3b82f6', badgeCls: 'bg-blue-100 text-blue-700',           icon: Zap },
+  PRO:        { label: 'Pro',        color: '#8b5cf6', badgeCls: 'bg-violet-100 text-violet-700',       icon: Sparkles },
+  ENTERPRISE: { label: 'Enterprise', color: '#f59e0b', badgeCls: 'bg-amber-100 text-amber-700',         icon: Crown },
 };
 
-const tierColors = {
-  FREE: 'bg-green-100 text-green-800',
-  STANDARD: 'bg-blue-100 text-blue-800',
-  PRO: 'bg-purple-100 text-purple-800',
-  ENTERPRISE: 'bg-orange-100 text-orange-800',
+const CATEGORY_CONFIG: Record<string, { icon: any; color: string }> = {
+  LEAD_GENERATION:   { icon: TrendingUp,    color: 'text-emerald-600' },
+  CUSTOMER_SUPPORT:  { icon: MessageSquare, color: 'text-blue-600'    },
+  ENGAGEMENT:        { icon: Users,         color: 'text-violet-600'  },
+  SALES:             { icon: Zap,           color: 'text-amber-600'   },
+  CONTENT_PROMOTION: { icon: Star,          color: 'text-pink-600'    },
 };
 
-export default function TemplateMarketplace({ templates, categories }: TemplateMarketplaceProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedTier, setSelectedTier] = useState<string>('all');
-  const [installing, setInstalling] = useState<string | null>(null);
+function canAccess(userTier: string, templateTier: string): boolean {
+  const userIdx = TIER_ORDER.indexOf(userTier.toUpperCase());
+  const tmplIdx = TIER_ORDER.indexOf(templateTier.toUpperCase());
+  return userIdx >= tmplIdx;
+}
 
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory;
-    const matchesTier = selectedTier === 'all' || template.tier === selectedTier;
-    
-    return matchesSearch && matchesCategory && matchesTier;
-  });
+// ─── TemplateCard ────────────────────────────────────────────────────────────
 
-  const handleInstallTemplate = async (templateId: string) => {
-    setInstalling(templateId);
-    try {
-      const response = await fetch('/api/templates/install', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ templateId })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success('Template installed successfully! Check your automations.');
-      } else {
-        toast.error(result.error || 'Failed to install template');
-      }
-    } catch (error) {
-      toast.error('Failed to install template');
-    } finally {
-      setInstalling(null);
+function TemplateCard({
+  template, userTier, onInstalled, compact,
+}: {
+  template: Template;
+  userTier: string;
+  onInstalled: (id: string, automationId: string) => void;
+  compact?: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const accessible = canAccess(userTier, template.tier);
+  const tierCfg = TIER_CONFIG[template.tier] || TIER_CONFIG.FREE;
+  const TierIcon = tierCfg.icon;
+  const catCfg = CATEGORY_CONFIG[template.category] || { icon: Package, color: 'text-foreground' };
+  const CategoryIcon = catCfg.icon;
+
+  const handleInstall = () => {
+    if (!accessible) {
+      toast.error(`Upgrade to ${tierCfg.label} to use this template`, { duration: 4000 });
+      return;
     }
+    startTransition(async () => {
+      try {
+        const { useTemplate } = await import('@/actions/templates');
+        const result = await useTemplate(template.id);
+        if (result.success) {
+          toast.success('Automation created! Check your automations page.', {
+            action: { label: 'View', onClick: () => window.location.href = `/automations/${result.data?.id}` },
+          });
+          onInstalled(template.id, result.data?.id || '');
+        } else {
+          toast.error(result.error || 'Failed to install template');
+        }
+      } catch {
+        toast.error('Failed to install template');
+      }
+    });
   };
+
+  if (compact) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        className={cn(
+          "flex items-center gap-4 p-4 rounded-2xl border border-border bg-card hover:border-primary/30 transition-all",
+          !accessible && "opacity-60"
+        )}
+      >
+        <div className={cn("w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shrink-0", catCfg.color)}>
+          <CategoryIcon className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm truncate">{template.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{template.description}</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full", tierCfg.badgeCls)}>{tierCfg.label}</span>
+          <button
+            onClick={handleInstall}
+            disabled={isPending}
+            className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : accessible ? <Download className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8 w-full"
+      className="group h-full"
     >
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start justify-between gap-8">
+      <div className={cn(
+        "relative h-full flex flex-col rounded-[28px] border border-border bg-card p-6 transition-all duration-300",
+        "hover:shadow-xl hover:shadow-primary/5 hover:-translate-y-1 hover:border-primary/30",
+        !accessible && "opacity-70"
+      )}>
+        {/* Lock overlay for higher tiers */}
+        {!accessible && (
+          <div className="absolute inset-0 rounded-[28px] bg-background/60 backdrop-blur-[1px] flex flex-col items-center justify-center z-10 gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-foreground flex items-center justify-center">
+              <Lock className="w-5 h-5 text-background" />
+            </div>
+            <p className="text-xs font-bold text-foreground">Requires {tierCfg.label}</p>
+            <Link href="/subscription" className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
+              <TierIcon className="w-3 h-3" /> Upgrade
+            </Link>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div className={cn("w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform", catCfg.color)}>
+            <CategoryIcon className="w-6 h-6" />
+          </div>
+          <div className="flex items-center gap-2">
+            {template.featured && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
+                <Star className="w-3 h-3 fill-amber-500 text-amber-500" /> Featured
+              </span>
+            )}
+            <span className={cn("text-[10px] font-bold px-2.5 py-1 rounded-full", tierCfg.badgeCls)}>
+              {tierCfg.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Content */}
+        <h3 className="text-xl font-bold tracking-tight mb-2 group-hover:text-primary transition-colors">
+          {template.name}
+        </h3>
+        <p className="text-sm text-muted-foreground leading-relaxed flex-1 mb-5">
+          {template.description}
+        </p>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5 mb-5">
+          {(template.tags || []).slice(0, 3).map(tag => (
+            <span key={tag} className="text-[10px] font-semibold px-2.5 py-1 bg-secondary rounded-full text-muted-foreground">
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-4 border-t border-border mt-auto">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Download className="w-3.5 h-3.5" />
+            <span>{(template.usageCount || 0).toLocaleString()} installs</span>
+          </div>
+          <button
+            onClick={handleInstall}
+            disabled={isPending}
+            className={cn(
+              "flex items-center gap-2 h-9 px-5 rounded-full text-xs font-bold transition-all",
+              accessible
+                ? "bg-foreground text-background hover:bg-primary hover:scale-105 active:scale-95"
+                : "bg-secondary text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            {isPending ? (
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Installing...</>
+            ) : accessible ? (
+              <><Download className="w-3.5 h-3.5" /> Install</>
+            ) : (
+              <><Lock className="w-3.5 h-3.5" /> Locked</>
+            )}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export default function TemplateMarketplace({ templates, categories, userTier = 'FREE' }: Props) {
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('ALL');
+  const [tierFilter, setTierFilter] = useState('ALL');
+  const [layout, setLayout] = useState<'grid' | 'list'>('grid');
+  const [installed, setInstalled] = useState<Record<string, string>>({});
+
+  const filtered = useMemo(() => templates.filter(t => {
+    const q = search.toLowerCase();
+    const matchSearch = !search || t.name.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      (t.tags || []).some(tag => tag.toLowerCase().includes(q));
+    const matchCat = category === 'ALL' || t.category === category;
+    const matchTier = tierFilter === 'ALL' || t.tier === tierFilter;
+    return matchSearch && matchCat && matchTier;
+  }), [templates, search, category, tierFilter]);
+
+  const featured = useMemo(() => templates.filter(t => t.featured), [templates]);
+
+  const stats = useMemo(() => ({
+    total: templates.length,
+    free: templates.filter(t => t.tier === 'FREE').length,
+    installs: templates.reduce((s, t) => s + (t.usageCount || 0), 0),
+  }), [templates]);
+
+  return (
+    <div className="space-y-10 w-full pb-10">
+      {/* Hero header */}
+      <div className="flex flex-col md:flex-row items-start justify-between gap-6">
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <span className="w-2 h-2 rounded-full bg-primary" />
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Template Library</span>
           </div>
-          <h1 className="text-5xl md:text-7xl font-bold text-foreground tracking-tighter leading-none">
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none text-foreground">
             Automation <br />
             <span className="text-muted-foreground">Templates.</span>
           </h1>
-          <p className="text-lg text-muted-foreground mt-4 max-w-2xl">
-            Get started faster with pre-built automation templates. From lead generation to customer support, 
-            find the perfect automation for your needs.
+          <p className="text-muted-foreground mt-4 max-w-xl">
+            One-click automation blueprints. Built by experts, ready to deploy.
           </p>
         </div>
-        
-        <div className="flex items-center gap-2 px-6 h-12 bg-secondary border border-border rounded-full text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          <Package className="w-4 h-4 mr-2" /> {templates.length} Templates
+
+        {/* Stats pills */}
+        <div className="flex flex-wrap gap-3 shrink-0">
+          {[
+            { label: 'Templates', value: stats.total, icon: Package },
+            { label: 'Free', value: stats.free, icon: CheckCircle2 },
+            { label: 'Installs', value: stats.installs.toLocaleString(), icon: Download },
+          ].map(s => (
+            <div key={s.label} className="flex items-center gap-2 px-5 h-11 bg-secondary border border-border rounded-full text-xs font-bold text-muted-foreground">
+              <s.icon className="w-3.5 h-3.5 text-primary" />
+              <span className="text-foreground">{s.value}</span>
+              <span>{s.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4">
+      {/* Tier progress bar */}
+      <div className="flex items-center gap-2 p-4 rounded-2xl border border-border bg-secondary/30">
+        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mr-2">Your Plan:</span>
+        {TIER_ORDER.map((t, i) => {
+          const cfg = TIER_CONFIG[t];
+          const unlocked = canAccess(userTier, t);
+          const active = t === userTier.toUpperCase();
+          return (
+            <div key={t} className="flex items-center gap-2">
+              <span className={cn(
+                "flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all",
+                active ? "border-primary bg-primary text-white" :
+                  unlocked ? "border-border bg-secondary text-foreground" :
+                    "border-border/50 bg-transparent text-muted-foreground opacity-50"
+              )}>
+                <cfg.icon className="w-3 h-3" /> {cfg.label}
+              </span>
+              {i < TIER_ORDER.length - 1 && <div className="w-4 h-0.5 bg-border" />}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Search & Filters */}
+      <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search templates..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-12 h-12 rounded-full border-border"
+            className="w-full h-12 pl-11 pr-4 rounded-full border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
-        
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-full md:w-48 h-12 rounded-full">
-            <SelectValue placeholder="All Categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            {categories.map(category => (
-              <SelectItem key={category.name} value={category.name}>
-                {category.label} ({category.count})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
 
-        <Select value={selectedTier} onValueChange={setSelectedTier}>
-          <SelectTrigger className="w-full md:w-32 h-12 rounded-full">
-            <SelectValue placeholder="All Tiers" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tiers</SelectItem>
-            <SelectItem value="FREE">Free</SelectItem>
-            <SelectItem value="STANDARD">Standard</SelectItem>
-            <SelectItem value="PRO">Pro</SelectItem>
-            <SelectItem value="ENTERPRISE">Enterprise</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Category pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 shrink-0">
+          {[{ name: 'ALL', label: 'All' }, ...categories].map(cat => (
+            <button
+              key={cat.name}
+              onClick={() => setCategory(cat.name)}
+              className={cn(
+                "shrink-0 h-10 px-4 rounded-full text-xs font-bold border transition-all",
+                category === cat.name
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-secondary border-border text-muted-foreground hover:border-foreground/30"
+              )}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Layout toggle */}
+        <div className="flex items-center gap-1 p-1 bg-secondary rounded-xl shrink-0">
+          <button
+            onClick={() => setLayout('grid')}
+            className={cn("p-2 rounded-lg transition-all", layout === 'grid' ? "bg-background shadow-sm" : "text-muted-foreground")}
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setLayout('list')}
+            className={cn("p-2 rounded-lg transition-all", layout === 'list' ? "bg-background shadow-sm" : "text-muted-foreground")}
+          >
+            <List className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Featured Templates */}
-      {searchTerm === '' && selectedCategory === 'all' && selectedTier === 'all' && (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold tracking-tighter">Featured Templates</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {templates.filter(t => t.featured).slice(0, 3).map((template, i) => (
-              <TemplateCard 
-                key={template.id} 
-                template={template} 
-                onInstall={handleInstallTemplate}
-                installing={installing === template.id}
-                delay={i * 0.1}
+      {/* Featured section */}
+      {!search && category === 'ALL' && featured.length > 0 && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+            <h2 className="text-2xl font-bold tracking-tight">Featured Templates</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {featured.slice(0, 3).map(t => (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                userTier={userTier}
+                onInstalled={(id, autId) => setInstalled(prev => ({ ...prev, [id]: autId }))}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* All Templates */}
-      <div className="space-y-6">
+      {/* All templates */}
+      <div className="space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tighter">
-            {searchTerm || selectedCategory !== 'all' || selectedTier !== 'all' ? 'Search Results' : 'All Templates'}
+          <h2 className="text-2xl font-bold tracking-tight">
+            {search || category !== 'ALL' ? 'Search Results' : 'All Templates'}
           </h2>
-          <span className="text-sm text-muted-foreground">
-            {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.map((template, i) => (
-            <TemplateCard 
-              key={template.id} 
-              template={template} 
-              onInstall={handleInstallTemplate}
-              installing={installing === template.id}
-              delay={i * 0.05}
-            />
-          ))}
+          <span className="text-sm text-muted-foreground">{filtered.length} template{filtered.length !== 1 ? 's' : ''}</span>
         </div>
 
-        {filteredTemplates.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-foreground mb-2">No templates found</h3>
-            <p className="text-muted-foreground">Try adjusting your search or filters</p>
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
+            <Package className="w-12 h-12 opacity-20" />
+            <p className="font-semibold">No templates found</p>
+            <p className="text-sm">Try adjusting your search or filters</p>
+          </div>
+        ) : layout === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <AnimatePresence mode="popLayout">
+              {filtered.map(t => (
+                <TemplateCard
+                  key={t.id}
+                  template={t}
+                  userTier={userTier}
+                  onInstalled={(id, autId) => setInstalled(prev => ({ ...prev, [id]: autId }))}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <AnimatePresence mode="popLayout">
+              {filtered.map(t => (
+                <TemplateCard
+                  key={t.id}
+                  template={t}
+                  userTier={userTier}
+                  onInstalled={(id, autId) => setInstalled(prev => ({ ...prev, [id]: autId }))}
+                  compact
+                />
+              ))}
+            </AnimatePresence>
           </div>
         )}
       </div>
-    </motion.div>
-  );
-}
-
-function TemplateCard({ 
-  template, 
-  onInstall, 
-  installing, 
-  delay = 0 
-}: { 
-  template: Template; 
-  onInstall: (id: string) => void; 
-  installing: boolean;
-  delay?: number;
-}) {
-  const CategoryIcon = categoryIcons[template.category as keyof typeof categoryIcons] || Package;
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-      className="group"
-    >
-      <Card className="h-full hover:shadow-lg transition-all duration-300 border-border hover:border-primary/30">
-        <CardHeader className="pb-4">
-          <div className="flex items-start justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center group-hover:scale-110 transition-transform">
-              <CategoryIcon className="w-6 h-6 text-primary" />
-            </div>
-            <div className="flex items-center gap-2">
-              {template.featured && (
-                <Badge variant="secondary" className="text-xs">
-                  <Star className="w-3 h-3 mr-1" />
-                  Featured
-                </Badge>
-              )}
-              <Badge className={`text-xs ${tierColors[template.tier as keyof typeof tierColors]}`}>
-                {template.tier}
-              </Badge>
-            </div>
-          </div>
-          
-          <CardTitle className="text-xl font-bold tracking-tight group-hover:text-primary transition-colors">
-            {template.name}
-          </CardTitle>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            {template.description}
-          </p>
-        </CardHeader>
-        
-        <CardContent className="pt-0">
-          <div className="flex flex-wrap gap-1 mb-4">
-            {template.tags.slice(0, 3).map(tag => (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Download className="w-3 h-3" />
-              {template.usageCount} installs
-            </div>
-            
-            <Button
-              onClick={() => onInstall(template.id)}
-              disabled={installing}
-              size="sm"
-              className="rounded-full"
-            >
-              {installing ? (
-                <>
-                  <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Installing...
-                </>
-              ) : (
-                <>
-                  <Download className="w-3 h-3 mr-2" />
-                  Install
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+    </div>
   );
 }

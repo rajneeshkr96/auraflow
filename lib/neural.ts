@@ -18,7 +18,7 @@ function getNeuralClient(): NeuralClient {
  *
  * - First call: creates the agent in neural-api with the user's custom prompt
  * - Subsequent calls: returns the cached neuralAgentId from MongoDB
- * - If the user updates their prompt: deletes old agent, creates new one
+ * - If the user updates their prompt: call updateNeuralAgentPrompt() — do NOT call this again
  */
 export async function getOrCreateNeuralAgent(
   listenerId: string,
@@ -37,13 +37,14 @@ export async function getOrCreateNeuralAgent(
   const agent = await getNeuralClient().agents.create({
     name: `auraflow-${userId}-${automationName.toLowerCase().replace(/\s+/g, '-').slice(0, 30)}`,
     appName: 'auraflow',
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     systemPrompt: prompt || 'You are a helpful Instagram assistant. Reply naturally and concisely.',
     type: 'chat',
     guardrailsEnabled: true,
     managedByApp: 'auraflow',
+    userId: userId,
     ...(knowledgeBaseId ? { knowledgeBaseId } : {}),
-  });
+  } as any);
 
   // Cache the agent ID in MongoDB so we don't recreate it on every message
   await prisma.listener.update({
@@ -54,9 +55,22 @@ export async function getOrCreateNeuralAgent(
   return agent.id;
 }
 
+
 /**
- * Recreate the neural agent when the user updates their prompt.
- * Deletes the old agent and creates a fresh one with the new config.
+ * Update the system prompt of an existing neural agent IN-PLACE.
+ * Does NOT delete or recreate the agent — the agent ID is preserved forever.
+ * This is the ONLY correct way to handle prompt changes from Auraflow.
+ */
+export async function updateNeuralAgentPrompt(
+  neuralAgentId: string,
+  newPrompt: string
+): Promise<void> {
+  await getNeuralClient().agents.update(neuralAgentId, { systemPrompt: newPrompt });
+}
+
+/**
+ * @deprecated Use updateNeuralAgentPrompt() directly instead.
+ * Kept for backward compatibility — now PATCHES prompt in-place, never deletes.
  */
 export async function refreshNeuralAgent(
   listenerId: string,
@@ -66,15 +80,13 @@ export async function refreshNeuralAgent(
 ): Promise<string> {
   const listener = await prisma.listener.findUnique({ where: { id: listenerId } });
 
-  // Delete old agent if exists
+  // If agent already exists, just update its prompt in-place (NO deletion)
   if (listener?.neuralAgentId) {
-    await getNeuralClient().agents.delete(listener.neuralAgentId).catch(() => null);
-    await prisma.listener.update({
-      where: { id: listenerId },
-      data: { neuralAgentId: null },
-    });
+    await updateNeuralAgentPrompt(listener.neuralAgentId, newPrompt);
+    return listener.neuralAgentId;
   }
 
+  // No agent yet — create one fresh
   return getOrCreateNeuralAgent(listenerId, userId, newPrompt, automationName);
 }
 

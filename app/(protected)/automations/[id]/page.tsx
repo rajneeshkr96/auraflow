@@ -37,9 +37,9 @@ const Page = async ({ params }: Props) => {
   const isAI = automation.listener?.listener === 'SMART_AI';
 
   return (
-    <div className="flex flex-col gap-12 h-full">
+    <div className="flex flex-col gap-6 h-full overflow-hidden">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 pb-10 border-b border-border">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border shrink-0">
         <div className="flex items-start gap-6">
           <Link href="/automations" className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary transition-all hover:scale-105 active:scale-95 shrink-0">
             <ArrowLeft className="w-6 h-6" />
@@ -71,7 +71,7 @@ const Page = async ({ params }: Props) => {
       </div>
 
       {/* Content: Wizard for new, Builder for existing */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         {isNew ? (
           <div className="max-w-4xl mx-auto py-10">
             <div className="mb-16 text-center">

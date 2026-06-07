@@ -92,6 +92,14 @@ model Conversation {
   integrationId String?     @db.ObjectId
   integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
+  // Rich inbox profile details:
+  username      String?
+  fullName      String?
+  avatarUrl     String?
+  aiActive      Boolean     @default(true)
+  tags          String[]
+  notes         String      @default("")
+
   messages Message[]
 
   @@unique([userId, recipientId])
@@ -103,6 +111,7 @@ model Message {
   role           MessageRole
   content        String
   mid            String?      // Instagram message ID — used for deduplication
+  senderType     String?      // 'user' | 'bot' | 'agent'
   inputTokens    Int?
   outputTokens   Int?
   createdAt      DateTime     @default(now())
@@ -269,4 +278,35 @@ enum EventType {
   CONVERSION
   LOGIN
   TEMPLATE_USED
+}
+
+// ── AI Agent Test Rate Limiting ──────────────────────────────────────────────
+// Tracks how many test messages a user has sent to their agent per day
+model DailyTestUsage {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  userId  Int
+  agentId String
+  date    String // YYYY-MM-DD format
+  count   Int    @default(0)
+
+  @@unique([userId, agentId, date])
+  @@map("daily_test_usage")
+}
+
+// ── BYOK Model Request System ─────────────────────────────────────────────────
+// Users can request to use their own BYOK models for their automation agents
+model AgentModelRequest {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId             Int
+  listenerId         String   @db.ObjectId
+  neuralAgentId      String
+  requestedModelId   String   // BYOK model ID e.g. "gpt-4o"
+  requestedModelName String   // Human-readable model name
+  // pending | approved | rejected
+  status             String   @default("pending")
+  adminNote          String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("agent_model_requests")
 }

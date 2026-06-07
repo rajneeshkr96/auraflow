@@ -1,11 +1,15 @@
 
-import React from 'react';
+"use client";
 
+import React from 'react';
 import { Heart, Target, Users, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-
+import { useCSWUser } from '@codeswayam/auth';
+import { useAuthUrl } from '@/lib/use-auth-url';
 
 const AboutView: React.FC = () => {
+  const { isSignedIn } = useCSWUser();
+  const { getAuthUrl } = useAuthUrl();
   return (
 
       <main className="min-h-screen bg-white text-slate-900">
@@ -71,9 +75,15 @@ const AboutView: React.FC = () => {
            <div className="max-w-4xl mx-auto">
               <h2 className="text-4xl font-black mb-8">Join the Auraflow journey</h2>
               <p className="text-slate-400 font-medium mb-12">We are just getting started. Be part of the next evolution of social media automation.</p>
-              <Link href="/sign-up" className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-full transition-all">
-                 Get Started for Free
-              </Link>
+              {isSignedIn ? (
+                <Link href="/dashboard" className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-full transition-all">
+                   Go to Dashboard
+                </Link>
+              ) : (
+                <a href={getAuthUrl("/signup")} className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-full transition-all">
+                   Get Started for Free
+                </a>
+              )}
            </div>
         </section>
       </main>

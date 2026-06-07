@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Bot, ExternalLink, Send, Loader2, CheckCircle2,
   AlertCircle, MessageSquare, Settings, Sparkles, RefreshCw,
+  Lock, Database, Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,6 +25,20 @@ interface ChatMsg {
   text: string;
 }
 
+interface ModelRequest {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  requestedModelId: string;
+  requestedModelName: string;
+  adminNote?: string;
+}
+
+interface BYOKModel {
+  id: string;
+  name: string;
+  provider: string;
+}
+
 interface Props {
   listenerId: string;
   automationId: string;
@@ -36,24 +51,31 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [modelRequest, setModelRequest] = useState<ModelRequest | null>(null);
+  const [approvedRequests, setApprovedRequests] = useState<ModelRequest[]>([]);
+  const [updatingModel, setUpdatingModel] = useState(false);
 
   // Test chat state
   const [chatOpen, setChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [serverLimitReached, setServerLimitReached] = useState(false);
   const sessionId = useRef(`auraflow-test-${listenerId}-${Date.now()}`);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const msgCount = messages.filter((m) => m.role === "user").length;
-  const testExhausted = msgCount >= MAX_TEST_MESSAGES;
+  const testExhausted = msgCount >= MAX_TEST_MESSAGES || serverLimitReached;
 
   useEffect(() => {
     fetch(`/api/agent?listenerId=${listenerId}`)
       .then((r) => r.json())
       .then((d) => {
         setAgent(d.agent ?? null);
-        if (d.prompt) setPrompt(d.prompt);
+        if (d.agent?.systemPrompt) setPrompt(d.agent.systemPrompt);
+        else if (d.prompt) setPrompt(d.prompt);
+        if (d.modelRequest) setModelRequest(d.modelRequest);
+        if (d.approvedRequests) setApprovedRequests(d.approvedRequests);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -96,6 +118,11 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
         body: JSON.stringify({ agentId: agent.id, message: userMsg, sessionId: sessionId.current }),
       });
       const data = await res.json();
+      if (res.status === 429) {
+        setServerLimitReached(true);
+        setMessages((prev) => [...prev, { role: "assistant", text: "⚠️ " + data.error }]);
+        return;
+      }
       if (!res.ok) throw new Error(data.error);
       setMessages((prev) => [...prev, { role: "assistant", text: data.text }]);
     } catch (err: any) {
@@ -104,6 +131,7 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
       setChatLoading(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -115,55 +143,53 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 w-full overflow-hidden">
       {/* Agent Status Header */}
-      <div className="flex items-center justify-between p-5 rounded-[24px] bg-foreground text-background">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
-            <Bot className="w-6 h-6 text-white" />
+      <div className="flex items-center justify-between gap-2 p-4 rounded-[20px] bg-foreground text-background overflow-hidden">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+            <Bot className="w-5 h-5 text-white" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold">
+              <span className="text-sm font-bold truncate block">
                 {agent ? agent.name : "Agent not provisioned yet"}
               </span>
               {agent && (
-                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
+                <span className={`shrink-0 text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest ${
                   agent.status === "active" ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white/50"
                 }`}>
                   {agent.status}
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-white/50 mt-0.5">
+            <p className="text-[10px] text-white/50 mt-0.5 truncate">
               {agent
-                ? `Model: ${agent.model} · Guardrails: ${agent.guardrailsEnabled ? "On" : "Off"} · Managed by Auraflow`
-                : "Will be created automatically when automation first triggers"}
+                ? `${agent.model} · Guardrails: ${agent.guardrailsEnabled ? "On" : "Off"} · Managed by Auraflow`
+                : "Auto-provisioned on first trigger"}
             </p>
           </div>
         </div>
 
         {agent && (
-          <div className="flex items-center gap-2">
-            {/* Advanced config deep-link to neural-web */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <a
               href={`${NEURAL_WEB_URL}/agents/${agent.id}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 h-9 px-4 rounded-full bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-all"
-              title="Advanced configuration in NeuralHub (KB, guardrails, analytics)"
+              className="flex items-center gap-1 h-8 px-3 rounded-full bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold transition-all shrink-0"
+              title="Advanced configuration in NeuralHub"
             >
-              <Settings className="w-3.5 h-3.5" />
-              Advanced
+              <Settings className="w-3 h-3" />
+              <span className="hidden xl:inline">Config</span>
               <ExternalLink className="w-3 h-3 opacity-50" />
             </a>
-            {/* Test chat toggle */}
             <button
               onClick={() => setChatOpen((v) => !v)}
-              className="flex items-center gap-2 h-9 px-4 rounded-full bg-primary hover:bg-primary/90 text-white text-[11px] font-bold transition-all"
+              className="flex items-center gap-1 h-8 px-3 rounded-full bg-primary hover:bg-primary/90 text-white text-[10px] font-bold transition-all shrink-0"
             >
-              <MessageSquare className="w-3.5 h-3.5" />
-              Test ({MAX_TEST_MESSAGES - msgCount} left)
+              <MessageSquare className="w-3 h-3" />
+              <span>{serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount}</span>
             </button>
           </div>
         )}
@@ -171,15 +197,39 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
 
       {/* Prompt Editor — the only editable field in Auraflow */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-2 flex-wrap">
           <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-primary" />
             AI System Prompt
           </label>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold">
-            <span className="px-2 py-0.5 rounded-full bg-secondary border border-border">
-              Model: gemini-2.0-flash · Locked
-            </span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Read-only model status badge — no switching in Auraflow */}
+            {agent && (approvedRequests.length > 0 || modelRequest?.status === "approved") ? (
+              /* Approved BYOK request(s) */
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-600">
+                <CheckCircle2 className="w-3 h-3" />
+                {approvedRequests[0]?.requestedModelName ?? modelRequest?.requestedModelName} · Approved
+              </span>
+            ) : agent && modelRequest?.status === "pending" ? (
+              /* Pending BYOK request */
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-500">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                {modelRequest.requestedModelName} · Pending Approval
+              </span>
+            ) : agent && modelRequest?.status === "rejected" ? (
+              /* Rejected request */
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">
+                <AlertCircle className="w-3 h-3" />
+                {modelRequest.requestedModelName} · Rejected
+                {modelRequest.adminNote && <span className="opacity-70">· {modelRequest.adminNote}</span>}
+              </span>
+            ) : (
+              /* Default: platform-locked badge */
+              <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary border border-border text-[10px] font-bold text-muted-foreground">
+                <Lock className="w-2.5 h-2.5" />
+                {agent?.model ?? "gemini-2.5-flash"} · Platform Default
+              </span>
+            )}
           </div>
         </div>
 
@@ -191,17 +241,17 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
           className="w-full px-5 py-4 rounded-[20px] border border-border bg-foreground text-background font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-white/20 leading-relaxed"
         />
 
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] text-muted-foreground">
+        <div className="flex items-start justify-between gap-4">
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
             This prompt defines your AI's personality and behavior.{" "}
             {agent && (
               <a
                 href={`${NEURAL_WEB_URL}/agents/${agent.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary hover:underline inline-flex items-center gap-1"
+                className="text-primary hover:underline inline-flex items-center gap-1 mt-1 block"
               >
-                Configure KB & guardrails in NeuralHub
+                <Database className="w-3 h-3" /> Add Knowledge Base &amp; guardrails in NeuralHub
                 <ExternalLink className="w-3 h-3" />
               </a>
             )}
@@ -209,12 +259,10 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
           <button
             onClick={handleSavePrompt}
             disabled={saving || !prompt.trim()}
-            className="flex items-center gap-2 h-9 px-5 rounded-full bg-primary text-white text-[11px] font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+            className="shrink-0 flex items-center gap-2 h-9 px-5 rounded-full bg-primary text-white text-[11px] font-bold hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
           >
             {saving ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : saved ? (
-              <CheckCircle2 className="w-3.5 h-3.5" />
             ) : (
               <CheckCircle2 className="w-3.5 h-3.5" />
             )}
@@ -223,7 +271,48 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
         </div>
       </div>
 
-      {/* Inline Test Chat — max 5 messages */}
+      {/* Switch Model Banner — redirect to NeuralHub */}
+      <div className="flex items-start gap-3 p-4 rounded-[20px] bg-primary/5 border border-primary/20">
+        <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-foreground">Want to use a custom AI model?</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Visit <strong>NeuralHub → Models</strong> to register your BYOK model and submit a model request.
+            Once approved by an admin, it will be active for this automation automatically.
+          </p>
+        </div>
+        <a
+          href={`${NEURAL_WEB_URL}/models`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full bg-primary text-white text-[10px] font-bold hover:bg-primary/90 transition-colors"
+        >
+          Go to Models <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
+
+      {/* Advanced Config Info Banner */}
+      {agent && (
+        <div className="flex items-start gap-3 p-4 rounded-[20px] bg-secondary/50 border border-border">
+          <Shield className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-foreground">Advanced configuration available in NeuralHub</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Add a Knowledge Base for RAG, configure guardrails, topic filtering, PII masking, and view detailed analytics.
+            </p>
+          </div>
+          <a
+            href={`${NEURAL_WEB_URL}/agents/${agent.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold hover:bg-primary/20 transition-colors"
+          >
+            Open NeuralHub <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      )}
+
+      {/* Inline Test Chat — max 5 messages (enforced server-side) */}
       {chatOpen && agent && (
         <div className="rounded-[24px] border border-border overflow-hidden">
           {/* Chat header */}
@@ -232,13 +321,19 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
               <Bot className="w-4 h-4 text-primary" />
               <span className="text-xs font-bold">Test Chat</span>
               <span className="text-[10px] text-muted-foreground">
-                · {MAX_TEST_MESSAGES - msgCount} messages remaining
+                · {serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount} messages remaining today
               </span>
+              {serverLimitReached && (
+                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 uppercase">
+                  Limit Reached
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
                   setMessages([]);
+                  setServerLimitReached(false);
                   sessionId.current = `auraflow-test-${listenerId}-${Date.now()}`;
                 }}
                 className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground hover:text-primary transition-colors"
@@ -254,6 +349,7 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
               <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
                 <Bot className="w-8 h-8 opacity-20" />
                 <p className="text-xs font-bold">Send a test message to preview your AI agent</p>
+                <p className="text-[10px] text-muted-foreground">Max {MAX_TEST_MESSAGES} messages per day (server-enforced)</p>
               </div>
             )}
             {messages.map((m, i) => (
@@ -282,7 +378,9 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
             {testExhausted ? (
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-bold py-1">
                 <AlertCircle className="w-4 h-4 text-amber-500" />
-                Test limit reached. Reset to test again, or{" "}
+                {serverLimitReached
+                  ? "Daily limit reached (server-enforced). Reset counter or come back tomorrow."
+                  : "Test limit reached. Reset to test again, or"}{" "}
                 <a
                   href={`${NEURAL_WEB_URL}/agents/${agent.id}/playground`}
                   target="_blank"

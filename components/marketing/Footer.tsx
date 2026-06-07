@@ -3,6 +3,8 @@ import React from 'react';
 import { LayoutGrid, Twitter, Instagram, Github, ArrowRight, ChevronRight, Globe, Shield, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useCSWUser } from '@codeswayam/auth';
+import { useAuthUrl } from '@/lib/use-auth-url';
 
 const links = {
   Product: ['Features', 'Pricing', 'Automations', 'AI Agents'],
@@ -11,6 +13,8 @@ const links = {
 };
 
 const Footer: React.FC = () => {
+  const { isSignedIn } = useCSWUser();
+  const { getAuthUrl } = useAuthUrl();
   return (
     <footer className="bg-background">
       {/* Premium CTA Section */}
@@ -38,10 +42,17 @@ const Footer: React.FC = () => {
               and increased their revenue by 245% on average.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link href="/signup" className="h-16 px-10 bg-white text-primary font-bold rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 text-lg">
-                Get started for free
-                <ChevronRight className="w-5 h-5" />
-              </Link>
+              {isSignedIn ? (
+                <Link href="/dashboard" className="h-16 px-10 bg-white text-primary font-bold rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 text-lg">
+                  Go to Dashboard
+                  <ChevronRight className="w-5 h-5" />
+                </Link>
+              ) : (
+                <a href={getAuthUrl("/signup")} className="h-16 px-10 bg-white text-primary font-bold rounded-full transition-all flex items-center gap-2 hover:scale-105 active:scale-95 text-lg">
+                  Get started for free
+                  <ChevronRight className="w-5 h-5" />
+                </a>
+              )}
               <button className="h-16 px-10 bg-primary-foreground/10 border border-white/20 text-white font-bold rounded-full hover:bg-white/15 transition-all text-lg">
                 Talk to Sales
               </button>

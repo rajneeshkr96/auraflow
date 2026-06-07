@@ -35,7 +35,7 @@ export default function Infobar({ user }: { user?: User | null }) {
     : (user?.email?.[0]?.toUpperCase() || 'U');
 
   return (
-    <header className="h-20 bg-background border-b border-border flex items-center justify-between px-10 z-10 shrink-0">
+    <header className="h-16 lg:h-20 bg-background border-b border-border flex items-center justify-between px-6 lg:px-10 z-10 shrink-0 w-full min-w-0">
       <div className="flex items-center gap-3 text-sm">
         <span className="text-muted-foreground font-bold tracking-tight uppercase text-[10px]">Auraflow</span>
         <span className="text-muted-foreground/30 font-light">/</span>

@@ -331,7 +331,7 @@ ISC License
 
 ---
 
-**Last Updated**: April 2026
+**Last Updated**: June 2026 (Supports `@codeswayam/api-client@1.3.0` upgrade pathways)
 
 For more information, see the main [README.md](../../README.md)
 
