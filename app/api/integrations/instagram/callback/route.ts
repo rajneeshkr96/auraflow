@@ -84,6 +84,39 @@ export async function GET(req: Request) {
         pageId,
         username,
       });
+
+      // Subscribe Instagram account to webhooks
+      try {
+        await axios.post(
+          `https://graph.instagram.com/v21.0/me/subscribed_apps`,
+          null,
+          {
+            params: {
+              subscribed_fields: "messages,messaging_postbacks,comments",
+              access_token: accessToken,
+            },
+          }
+        );
+        console.log("[OAuth] Successfully subscribed Instagram account to webhooks via graph.instagram.com");
+      } catch (subErr: any) {
+        console.warn(
+          "[OAuth] graph.instagram.com subscribed_apps failed, attempting graph.facebook.com fallback:",
+          subErr.response?.data || subErr.message
+        );
+        const targetId = pageId || instagramId;
+        if (targetId) {
+          await axios
+            .post(`https://graph.facebook.com/v21.0/${targetId}/subscribed_apps`, null, {
+              params: {
+                subscribed_fields: "messages,messaging_postbacks,comments",
+                access_token: accessToken,
+              },
+            })
+            .catch((fbErr) =>
+              console.error("[OAuth] Facebook subscribed_apps fallback failed:", fbErr.response?.data || fbErr.message)
+            );
+        }
+      }
     } else {
       // ── Facebook Login flow ──────────────────────────────────────────
       const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {

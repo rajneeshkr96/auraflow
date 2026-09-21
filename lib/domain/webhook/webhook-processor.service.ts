@@ -18,8 +18,9 @@ export class WebhookProcessorService {
     for (const entry of body.entry) {
       const accountId = entry.id;
 
-      // 1. Process Direct Messages
+      // 1. Process Direct Messages via entry.messaging (standard Messenger / Instagram API)
       if (Array.isArray(entry.messaging)) {
+        console.log(`[WebhookProcessor] Processing ${entry.messaging.length} messaging event(s) for account ${accountId}`);
         for (const event of entry.messaging) {
           await this.handleDm(accountId, event).catch((err) =>
             console.error("[WebhookProcessor] DM handling error:", err)
@@ -27,13 +28,21 @@ export class WebhookProcessorService {
         }
       }
 
-      // 2. Process Comments
+      // 2. Process Changes (Comments and DMs sent via changes)
       if (Array.isArray(entry.changes)) {
+        console.log(`[WebhookProcessor] Processing ${entry.changes.length} change event(s) for account ${accountId}`);
         for (const change of entry.changes) {
           if (change.field === "comments" && change.value) {
             await this.handleComment(accountId, change.value).catch((err) =>
               console.error("[WebhookProcessor] Comment handling error:", err)
             );
+          } else if ((change.field === "messages" || change.field === "messaging") && change.value) {
+            console.log(`[WebhookProcessor] Processing DM event from changes.field "${change.field}" for account ${accountId}`);
+            await this.handleDm(accountId, change.value).catch((err) =>
+              console.error("[WebhookProcessor] DM (from changes) handling error:", err)
+            );
+          } else {
+            console.log(`[WebhookProcessor] Unhandled change field: "${change.field}"`);
           }
         }
       }
