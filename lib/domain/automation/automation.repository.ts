@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { ListenerType, TriggerType } from "@prisma/client";
 
 export interface CreateAutomationDto {
   userId: number;
@@ -8,9 +9,9 @@ export interface CreateAutomationDto {
 export interface UpdateAutomationDto {
   name?: string;
   active?: boolean;
-  triggerTypes?: ("DM" | "COMMENT")[];
+  triggerTypes?: TriggerType[];
   keywords?: string[];
-  listenerType?: "MESSAGE" | "SMART_AI" | "PRODUCT_CHECKOUT";
+  listenerType?: ListenerType;
   reply?: string;
   dmReply?: string;
   prompt?: string;
