@@ -54,6 +54,7 @@ export class IntegrationRepository {
     // 1. Fast path: Direct match by instagramId (ASUID) or pageId (IGSID / Page ID)
     const directMatch = await prisma.integration.findFirst({
       where: {
+        isActive: true,
         OR: [
           { instagramId: accountId },
           { pageId: accountId },
@@ -62,49 +63,88 @@ export class IntegrationRepository {
     });
     if (directMatch) return directMatch;
 
-    // 2. Self-healing fallback: Check active Instagram integrations against Meta Graph API
+    // 2. Also check any record regardless of isActive
+    const directMatchAny = await prisma.integration.findFirst({
+      where: {
+        OR: [
+          { instagramId: accountId },
+          { pageId: accountId },
+        ],
+      },
+    });
+    if (directMatchAny) return directMatchAny;
+
+    // 3. Resilient fallback resolution:
     try {
-      const allIntegrations = await prisma.integration.findMany({
-        where: { name: "INSTAGRAM" },
+      const activeIntegrations = await prisma.integration.findMany({
+        where: { name: "INSTAGRAM", isActive: true },
+        orderBy: { createdAt: "desc" },
       });
 
-      for (const item of allIntegrations) {
-        if (!item.token) continue;
-        try {
-          const res = await axios.get("https://graph.instagram.com/v21.0/me", {
-            params: { fields: "id,user_id,username", access_token: item.token },
-            timeout: 4000,
-          });
+      // If exactly 1 active integration exists, it MUST belong to this incoming webhook.
+      // Auto-bind accountId immediately and return with 0ms external API delay!
+      if (activeIntegrations.length === 1) {
+        const single = activeIntegrations[0];
+        console.log(`[IntegrationRepository] Auto-binding accountId ${accountId} to sole active integration ${single.id}`);
+        prisma.integration.update({
+          where: { id: single.id },
+          data: {
+            ...(single.instagramId ? { pageId: accountId } : { instagramId: accountId }),
+          },
+        }).catch((e) => console.error("[IntegrationRepository] Auto-bind error:", e.message));
 
-          const igUserId = res.data?.user_id ? String(res.data.user_id) : null;
-          const asUserId = res.data?.id ? String(res.data.id) : null;
-
-          if (igUserId === accountId || asUserId === accountId) {
-            // Update pageId in DB so every future lookup hits the fast path
-            const resolvedPageId = igUserId || item.pageId;
-            const resolvedUsername = res.data?.username ? String(res.data.username) : item.username;
-
-            await prisma.integration.update({
-              where: { id: item.id },
-              data: {
-                pageId: resolvedPageId,
-                ...(resolvedUsername && { username: resolvedUsername }),
-              },
-            });
-
-            return {
-              ...item,
-              pageId: resolvedPageId,
-              username: resolvedUsername || item.username,
-            };
-          }
-        } catch (err: any) {
-          // Ignore individual token query failure
-        }
+        return single;
       }
 
-      // 3. Fallback: If only 1 integration exists across the workspace
-      if (allIntegrations.length === 1) {
+      // If multiple active integrations exist, query Meta Graph in PARALLEL with a fast timeout (1500ms)
+      if (activeIntegrations.length > 1) {
+        const checkPromises = activeIntegrations.map(async (item) => {
+          if (!item.token) return null;
+          try {
+            const res = await axios.get("https://graph.instagram.com/v21.0/me", {
+              params: { fields: "id,user_id,username", access_token: item.token },
+              timeout: 1500,
+            });
+            const igUserId = res.data?.user_id ? String(res.data.user_id) : null;
+            const asUserId = res.data?.id ? String(res.data.id) : null;
+            if (igUserId === accountId || asUserId === accountId) {
+              return { item, resolvedPageId: igUserId || item.pageId, resolvedUsername: res.data?.username || item.username };
+            }
+          } catch {}
+          return null;
+        });
+
+        const results = await Promise.all(checkPromises);
+        const match = results.find(Boolean);
+        if (match) {
+          prisma.integration.update({
+            where: { id: match.item.id },
+            data: {
+              pageId: match.resolvedPageId,
+              ...(match.resolvedUsername && { username: match.resolvedUsername }),
+            },
+          }).catch(() => null);
+          return match.item;
+        }
+
+        // Fallback: Default to latest active integration so the DM is never dropped
+        const latest = activeIntegrations[0];
+        console.warn(`[IntegrationRepository] No exact ID match, falling back to latest active integration: ${latest.id}`);
+        prisma.integration.update({
+          where: { id: latest.id },
+          data: {
+            ...(latest.instagramId ? { pageId: accountId } : { instagramId: accountId }),
+          },
+        }).catch(() => null);
+        return latest;
+      }
+
+      // 4. Last resort: Check any integration in database
+      const allIntegrations = await prisma.integration.findMany({
+        where: { name: "INSTAGRAM" },
+        orderBy: { createdAt: "desc" },
+      });
+      if (allIntegrations.length > 0) {
         return allIntegrations[0];
       }
     } catch (e: any) {

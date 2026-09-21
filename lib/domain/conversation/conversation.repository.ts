@@ -13,49 +13,64 @@ export class ConversationRepository {
       const needsIntegrationUpdate = integrationId && conv.integrationId !== integrationId;
       const needsProfileUpdate = (!conv.username || conv.username.startsWith("@user_")) && token;
 
-      if (needsIntegrationUpdate || needsProfileUpdate) {
-        const updateData: any = {};
-        if (needsIntegrationUpdate) updateData.integrationId = integrationId;
-        if (needsProfileUpdate && token) {
-          const profile = await InstagramService.fetchUserProfile(recipientId, token);
-          if (profile.username) updateData.username = profile.username;
-          if (profile.fullName) updateData.fullName = profile.fullName;
-          if (profile.avatarUrl) updateData.avatarUrl = profile.avatarUrl;
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          conv = await prisma.conversation.update({
-            where: { id: conv.id },
-            data: updateData,
-          });
-        }
+      if (needsIntegrationUpdate) {
+        prisma.conversation.update({
+          where: { id: conv.id },
+          data: { integrationId },
+        }).catch(() => null);
       }
+
+      if (needsProfileUpdate && token) {
+        // Fetch profile asynchronously without blocking the reply
+        InstagramService.fetchUserProfile(recipientId, token).then((profile) => {
+          if (profile.username || profile.fullName || profile.avatarUrl) {
+            prisma.conversation.update({
+              where: { id: conv!.id },
+              data: {
+                ...(profile.username && { username: profile.username }),
+                ...(profile.fullName && { fullName: profile.fullName }),
+                ...(profile.avatarUrl && { avatarUrl: profile.avatarUrl }),
+              },
+            }).catch(() => null);
+          }
+        }).catch(() => null);
+      }
+
       return conv;
     }
 
-    // Try fetching profile from Instagram
-    let username = `@user_${recipientId.slice(-4)}`;
-    let fullName = "Instagram User";
-    let avatarUrl: string | null = null;
+    // Create conversation instantly with default placeholder
+    const username = `@user_${recipientId.slice(-4)}`;
+    const fullName = "Instagram User";
 
-    if (token) {
-      const profile = await InstagramService.fetchUserProfile(recipientId, token);
-      if (profile.username) username = profile.username;
-      if (profile.fullName) fullName = profile.fullName;
-      if (profile.avatarUrl) avatarUrl = profile.avatarUrl;
-    }
-
-    return prisma.conversation.create({
+    const created = await prisma.conversation.create({
       data: {
         userId,
         recipientId,
         integrationId,
         username,
         fullName,
-        avatarUrl,
         aiActive: true,
       },
     });
+
+    // Populate real profile asynchronously in background
+    if (token) {
+      InstagramService.fetchUserProfile(recipientId, token).then((profile) => {
+        if (profile.username || profile.fullName || profile.avatarUrl) {
+          prisma.conversation.update({
+            where: { id: created.id },
+            data: {
+              ...(profile.username && { username: profile.username }),
+              ...(profile.fullName && { fullName: profile.fullName }),
+              ...(profile.avatarUrl && { avatarUrl: profile.avatarUrl }),
+            },
+          }).catch(() => null);
+        }
+      }).catch(() => null);
+    }
+
+    return created;
   }
 
   static async logMessage(params: {
