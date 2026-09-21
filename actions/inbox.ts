@@ -5,6 +5,8 @@ import { getAuthUserId } from "@/lib/platform/auth";
 import axios from "axios";
 import { revalidatePath } from "next/cache";
 
+import { InstagramService } from "@/lib/domain/integration/instagram.service";
+
 async function sendInstagramDm(
   token: string,
   recipientId: string,
@@ -12,26 +14,13 @@ async function sendInstagramDm(
   pageId?: string | null,
   instagramId?: string | null
 ) {
-  if (!token || !recipientId || !text.trim()) return;
-  if (!pageId && !instagramId) {
-    console.error("[sendInstagramDm] skipped — no pageId or instagramId");
-    return;
-  }
-
-  const baseUrl = pageId
-    ? `https://graph.facebook.com/v21.0/${pageId}/messages`
-    : `https://graph.instagram.com/v21.0/me/messages`;
-
-  try {
-    await axios.post(
-      baseUrl,
-      { recipient: { id: recipientId }, message: { text } },
-      { params: { access_token: token } }
-    );
-    console.log("[sendInstagramDm] DM sent successfully to Meta API");
-  } catch (e: any) {
-    console.error("[sendInstagramDm] Meta DM send error:", e.response?.data || e.message);
-  }
+  return InstagramService.sendDm({
+    token,
+    recipientId,
+    text,
+    pageId,
+    instagramId,
+  });
 }
 
 async function seedDemoConversations(userId: number) {
@@ -122,23 +111,42 @@ async function seedDemoConversations(userId: number) {
   }
 }
 
-export const getConversations = async () => {
+export const getConversations = async (integrationId?: string) => {
   const userId = await getAuthUserId();
   if (!userId) return [];
 
   try {
+    const userIntegrations = await prisma.integration.findMany({
+      where: { userId, name: "INSTAGRAM" },
+    });
+    const hasIntegrations = userIntegrations.length > 0;
+
     let conversations = await prisma.conversation.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(integrationId ? { integrationId } : {}),
+      },
       include: {
         messages: {
           orderBy: { createdAt: "asc" },
         },
+        integration: true,
       },
-      orderBy: { createdAt: "desc" }, // Sort by creation date
+      orderBy: { createdAt: "desc" },
     });
 
-    // If no conversations exist, seed demo conversations to show a working and beautiful inbox instantly
-    if (conversations.length === 0) {
+    const DEMO_RECIPIENTS = ["sarah_k_psid", "alex_dev_psid", "emily_w_psid"];
+    const hasRealConversations = conversations.some(
+      (c) => !DEMO_RECIPIENTS.includes(c.recipientId)
+    );
+
+    // If user has real conversations or connected integrations, filter out demo seeds
+    if (hasRealConversations || hasIntegrations) {
+      conversations = conversations.filter(
+        (c) => !DEMO_RECIPIENTS.includes(c.recipientId)
+      );
+    } else if (conversations.length === 0 && !hasIntegrations) {
+      // Only seed demo conversations if user has NO connected accounts and NO real conversations
       await seedDemoConversations(userId);
       conversations = await prisma.conversation.findMany({
         where: { userId },
@@ -146,6 +154,7 @@ export const getConversations = async () => {
           messages: {
             orderBy: { createdAt: "asc" },
           },
+          integration: true,
         },
       });
     }

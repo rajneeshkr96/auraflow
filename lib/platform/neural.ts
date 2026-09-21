@@ -2,10 +2,44 @@ import NeuralClient from "@codeswayam/neural";
 
 let _neural: NeuralClient | null = null;
 
+export type PersonaType = "DEFAULT" | "SALES_CLOSER" | "CUSTOMER_SUPPORT" | "INFLUENCER_COMPANION";
+
+export function buildPersonaPrompt(
+  type: string = "DEFAULT",
+  customPrompt?: string | null,
+  context?: { brandName?: string; products?: string }
+): string {
+  const base = customPrompt?.trim() || "";
+
+  switch (type) {
+    case "SALES_CLOSER":
+      return `You are an elite, high-converting Sales Closer for ${context?.brandName || "our brand"}.
+Your mission is to understand the customer's needs, handle hesitations with empathy and proof, and guide them directly to purchasing or booking.
+Keep replies concise, friendly, engaging, and action-oriented. Never overwhelm with long paragraphs.
+${context?.products ? `Products available: ${context.products}` : ""}
+${base ? `Additional instructions: ${base}` : ""}`.trim();
+
+    case "CUSTOMER_SUPPORT":
+      return `You are a helpful, empathetic Customer Support Specialist for ${context?.brandName || "our brand"}.
+Your goal is to answer questions accurately, resolve issues quickly, and ensure a delightful experience.
+If you don't know the answer, politely offer to connect them with a human team member.
+${base ? `Additional instructions: ${base}` : ""}`.trim();
+
+    case "INFLUENCER_COMPANION":
+      return `You are an authentic, engaging, and charismatic Instagram personality and companion.
+Communicate naturally with genuine warmth, thoughtful emojis, and casual conversational tone.
+Show genuine interest in the person chatting with you, make them feel heard and valued, and keep the conversation vibrant and fun.
+${base ? `Personality notes: ${base}` : ""}`.trim();
+
+    default:
+      return base || "You are a helpful, professional Instagram assistant.";
+  }
+}
+
 export function getNeuralClient(): NeuralClient {
   if (!_neural) {
     const apiKey = process.env.NEURAL_API_KEY || "nhub_live_e1c49ad97dab8b8f7ac97eadeabc9e4b";
-    const baseUrl = process.env.NEURAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEURAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "https://core.codeswayam.com";
     _neural = new NeuralClient({ apiKey, baseUrl });
   }
   return _neural;

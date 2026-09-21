@@ -41,26 +41,37 @@ export class WebhookProcessorService {
   }
 
   /**
-   * Handles an incoming DM event
+   * Handles an incoming DM event with resilient dual-ID lookup and strategy execution
    */
   private static async handleDm(instagramAccountId: string, event: any): Promise<void> {
     const senderId: string = event.sender?.id;
+    const recipientId: string = event.recipient?.id;
     const messageText: string = event.message?.text;
     const mid: string = event.message?.mid;
     const isEcho: boolean = !!event.message?.is_echo;
 
-    // 1. Integration lookup
-    const integration = await IntegrationRepository.findByAccountOrPageId(instagramAccountId);
+    if (!senderId || !messageText) return;
+
+    // 1. Dual-ID Integration lookup: check entry.id, then recipient.id
+    let integration = await IntegrationRepository.findByAccountOrPageId(instagramAccountId);
+    if (!integration && recipientId) {
+      integration = await IntegrationRepository.findByAccountOrPageId(recipientId);
+    }
+
     if (!integration) {
-      console.warn("[WebhookProcessor] No integration found for:", instagramAccountId);
+      console.warn("[WebhookProcessor] No integration found for:", {
+        instagramAccountId,
+        recipientId,
+      });
       return;
     }
 
-    // 2. Conversation find-or-create
+    // 2. Conversation find-or-create with profile resolution
     const conversation = await ConversationRepository.findOrCreate(
       integration.userId,
       senderId,
-      integration.id
+      integration.id,
+      integration.token
     );
 
     // 3. Deduplication & Loop Guard
@@ -83,22 +94,28 @@ export class WebhookProcessorService {
       role: "USER",
       content: messageText,
       mid,
+      senderType: "user",
     });
 
-    // 5. Match Automation
+    // 5. Match Automation via Strategy Engine
     const automations = await AutomationRepository.findActiveByUserId(integration.userId);
     const matched = AutomationMatcher.match(automations as any, "DM", messageText);
 
     if (!matched?.listener) {
+      console.log("[WebhookProcessor] No automation matched for inbound DM:", {
+        userId: integration.userId,
+        messageText,
+        activeCount: automations.length,
+      });
       return;
     }
 
     const { listener } = matched;
 
-    // 6. Execute Listener Strategy
+    // 6. Execute Listener Strategy (Polymorphic Action Dispatcher)
     if (listener.listener === "MESSAGE") {
-      const reply = listener.dmReply || "Thanks for reaching out!";
-      await InstagramService.sendDm({
+      const reply = listener.dmReply || listener.commentReply || "Thanks for reaching out!";
+      const sent = await InstagramService.sendDm({
         token: integration.token,
         recipientId: senderId,
         text: reply,
@@ -106,34 +123,42 @@ export class WebhookProcessorService {
         instagramId: integration.instagramId,
       });
 
-      await ConversationRepository.logMessage({
-        conversationId: conversation.id,
-        role: "ASSISTANT",
-        content: reply,
-      });
+      if (sent) {
+        await ConversationRepository.logMessage({
+          conversationId: conversation.id,
+          role: "ASSISTANT",
+          content: reply,
+          senderType: "bot",
+        });
 
-      // Track DM usage to Core-API
-      trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
+        trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
+      }
     } else if (listener.listener === "SMART_AI") {
-      // Check if user has sufficient credits if on credit-based plan
+      // Check credit / tier entitlement
       const canProceed = await canAffordFeature(integration.userId, "ai_reply", 5);
       if (!canProceed) {
-        console.warn("[WebhookProcessor] User has insufficient credits for AI reply:", integration.userId);
+        console.warn("[WebhookProcessor] Insufficient credits for AI reply:", integration.userId);
         return;
       }
 
-      // Generate AI response via entity-bound Neural Chat
+      // Build persona-tailored prompt (Sales Closer, Customer Support, Influencer Companion)
+      const { buildPersonaPrompt } = await import("@/lib/platform/neural");
+      const systemPrompt = buildPersonaPrompt(
+        listener.personaType || "DEFAULT",
+        listener.prompt,
+        { brandName: integration.username || "our brand" }
+      );
+
       const sessionId = `auraflow-dm-${conversation.id}`;
       const entityId = listener.neuralAgentId || listener.id;
       const aiReply = await PlatformNeuralService.chat(entityId, messageText, sessionId, {
-        systemPrompt: listener.prompt || "You are a helpful Instagram DM assistant.",
+        systemPrompt,
         knowledgeBaseId: (listener as any).neuralKbId ?? undefined,
         userId: integration.userId,
         name: matched.name,
       });
 
-      // Send reply
-      await InstagramService.sendDm({
+      const sent = await InstagramService.sendDm({
         token: integration.token,
         recipientId: senderId,
         text: aiReply,
@@ -141,17 +166,42 @@ export class WebhookProcessorService {
         instagramId: integration.instagramId,
       });
 
-      // Record in conversation
-      await ConversationRepository.logMessage({
-        conversationId: conversation.id,
-        role: "ASSISTANT",
-        content: aiReply,
+      if (sent) {
+        await ConversationRepository.logMessage({
+          conversationId: conversation.id,
+          role: "ASSISTANT",
+          content: aiReply,
+          senderType: "bot",
+        });
+
+        deductCredits(integration.userId, "ai_reply", "Auraflow AI DM Reply").catch(() => null);
+        trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
+        trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+      }
+    } else if (listener.listener === "PRODUCT_CHECKOUT") {
+      // Future-ready social commerce checkout strategy
+      const checkoutText = listener.paymentLink
+        ? `${listener.dmReply || "Here is the direct checkout link to complete your order:"}\n\n👉 ${listener.paymentLink}`
+        : listener.dmReply || "Check out our latest products in our bio!";
+
+      const sent = await InstagramService.sendDm({
+        token: integration.token,
+        recipientId: senderId,
+        text: checkoutText,
+        pageId: integration.pageId,
+        instagramId: integration.instagramId,
       });
 
-      // Deduct credits and track usage to Core-API
-      deductCredits(integration.userId, "ai_reply", "Auraflow AI DM Reply").catch(() => null);
-      trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
-      trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+      if (sent) {
+        await ConversationRepository.logMessage({
+          conversationId: conversation.id,
+          role: "ASSISTANT",
+          content: checkoutText,
+          senderType: "bot",
+        });
+
+        trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
+      }
     }
   }
 
@@ -165,13 +215,13 @@ export class WebhookProcessorService {
     const commentId: string = value.id;
 
     if (!commenterId || !commentText?.trim() || !commentId) return;
-    if (commenterId === instagramAccountId) return; // Own reply
+    if (commenterId === instagramAccountId) return; // Own reply guard
 
     // 1. Deduplication guard
     const isDup = await WebhookDedupService.isDuplicateComment(commentId);
     if (isDup) return;
 
-    // 2. Integration lookup
+    // 2. Dual-ID Integration lookup
     const integration = await IntegrationRepository.findByAccountOrPageId(instagramAccountId);
     if (!integration) return;
 
@@ -187,19 +237,25 @@ export class WebhookProcessorService {
     if (listener.listener === "MESSAGE") {
       replyText = listener.commentReply || "Thanks!";
     } else if (listener.listener === "SMART_AI") {
+      const { buildPersonaPrompt } = await import("@/lib/platform/neural");
+      const systemPrompt = buildPersonaPrompt(
+        listener.personaType || "DEFAULT",
+        listener.prompt || "You are a helpful Instagram assistant replying to comments.",
+        { brandName: integration.username || "our brand" }
+      );
+
       const entityId = listener.neuralAgentId || listener.id;
       replyText = await PlatformNeuralService.chat(
         entityId,
         commentText,
         `auraflow-comment-${commentId}`,
         {
-          systemPrompt: listener.prompt || "You are a helpful Instagram assistant replying to comments.",
+          systemPrompt,
           userId: integration.userId,
           name: matched.name,
         }
       );
 
-      // Deduct credits & track usage
       deductCredits(integration.userId, "ai_reply", "Auraflow AI Comment Reply").catch(() => null);
       trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
     }

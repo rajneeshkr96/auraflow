@@ -1,12 +1,60 @@
 import { prisma } from "@/lib/db";
 import { MessageRole } from "@prisma/client";
+import { InstagramService } from "../integration/instagram.service";
 
 export class ConversationRepository {
-  static async findOrCreate(userId: number, recipientId: string, integrationId?: string) {
-    return prisma.conversation.upsert({
+  static async findOrCreate(userId: number, recipientId: string, integrationId?: string, token?: string) {
+    let conv = await prisma.conversation.findUnique({
       where: { userId_recipientId: { userId, recipientId } },
-      create: { userId, recipientId, integrationId },
-      update: integrationId ? { integrationId } : {},
+    });
+
+    if (conv) {
+      // If conversation exists but profile details are missing or integrationId needs linking
+      const needsIntegrationUpdate = integrationId && conv.integrationId !== integrationId;
+      const needsProfileUpdate = (!conv.username || conv.username.startsWith("@user_")) && token;
+
+      if (needsIntegrationUpdate || needsProfileUpdate) {
+        const updateData: any = {};
+        if (needsIntegrationUpdate) updateData.integrationId = integrationId;
+        if (needsProfileUpdate && token) {
+          const profile = await InstagramService.fetchUserProfile(recipientId, token);
+          if (profile.username) updateData.username = profile.username;
+          if (profile.fullName) updateData.fullName = profile.fullName;
+          if (profile.avatarUrl) updateData.avatarUrl = profile.avatarUrl;
+        }
+
+        if (Object.keys(updateData).length > 0) {
+          conv = await prisma.conversation.update({
+            where: { id: conv.id },
+            data: updateData,
+          });
+        }
+      }
+      return conv;
+    }
+
+    // Try fetching profile from Instagram
+    let username = `@user_${recipientId.slice(-4)}`;
+    let fullName = "Instagram User";
+    let avatarUrl: string | null = null;
+
+    if (token) {
+      const profile = await InstagramService.fetchUserProfile(recipientId, token);
+      if (profile.username) username = profile.username;
+      if (profile.fullName) fullName = profile.fullName;
+      if (profile.avatarUrl) avatarUrl = profile.avatarUrl;
+    }
+
+    return prisma.conversation.create({
+      data: {
+        userId,
+        recipientId,
+        integrationId,
+        username,
+        fullName,
+        avatarUrl,
+        aiActive: true,
+      },
     });
   }
 

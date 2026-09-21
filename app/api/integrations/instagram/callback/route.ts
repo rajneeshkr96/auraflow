@@ -48,6 +48,10 @@ export async function GET(req: Request) {
     let pageId: string | null = null;
     let pageAccessToken: string | null = null;
 
+    let username: string | null = null;
+    let fullName: string | null = null;
+    let profilePic: string | null = null;
+
     if (useInstagramLogin) {
       // ── Instagram Login flow ─────────────────────────────────────────
       // Step 1: Exchange code for short-lived token
@@ -64,14 +68,22 @@ export async function GET(req: Request) {
       });
       accessToken = longRes.data.access_token;
 
-      // Step 3: Get the Instagram Business Account ID from /me
-      // NOTE: instagram_business_account is a Facebook Graph API field — it does NOT exist on
-      // graph.instagram.com. With Instagram Business Login the /me id IS the Business Account ID.
+      // Step 3: Get the Instagram Business Account ID, user_id, and profile details from /me
       const meRes = await axios.get("https://graph.instagram.com/v21.0/me", {
-        params: { fields: "id,username,name", access_token: accessToken },
+        params: { fields: "id,user_id,username,name,profile_picture_url", access_token: accessToken },
       });
       instagramId = String(meRes.data.id);
-      console.log("[OAuth] Instagram Business Login /me → instagramId:", instagramId, "username:", meRes.data.username);
+      const igUserId = meRes.data.user_id ? String(meRes.data.user_id) : null;
+      pageId = igUserId || null;
+      username = meRes.data.username ? String(meRes.data.username) : null;
+      fullName = meRes.data.name ? String(meRes.data.name) : null;
+      profilePic = meRes.data.profile_picture_url ? String(meRes.data.profile_picture_url) : null;
+
+      console.log("[OAuth] Instagram Business Login /me →", {
+        instagramId,
+        pageId,
+        username,
+      });
     } else {
       // ── Facebook Login flow ──────────────────────────────────────────
       const tokenResponse = await axios.get("https://graph.facebook.com/v21.0/oauth/access_token", {
@@ -123,21 +135,39 @@ export async function GET(req: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=no_instagram_account`);
     }
 
-    // Save integration
-    await prisma.integration.deleteMany({ where: { userId, name: "INSTAGRAM" } });
-    await prisma.integration.deleteMany({ where: { instagramId } });
-    await prisma.integration.create({
-      data: {
-        userId,
-        token: pageAccessToken || accessToken,
-        instagramId,
-        pageId,
-        name: "INSTAGRAM",
-      },
+    // ── Multi-Account Quota & Entitlement Gate ─────────────────────────
+    const existingAccounts = await prisma.integration.findMany({
+      where: { userId, name: "INSTAGRAM" },
+    });
+    const isReconnectingExisting = existingAccounts.some(
+      (acc) => acc.instagramId === instagramId || (pageId && acc.pageId === pageId)
+    );
+
+    // If connecting a NEW distinct Instagram account, check tier connection quota
+    if (!isReconnectingExisting) {
+      const { checkQuota } = await import("@/lib/platform/entitlements");
+      const quota = await checkQuota("connections", existingAccounts.length);
+      if (!quota.allowed) {
+        return NextResponse.redirect(
+          `${process.env.NEXT_PUBLIC_APP_URL}/integrations?limitReached=true&max=${quota.limit}`
+        );
+      }
+    }
+
+    // Upsert integration without wiping other connected accounts
+    const { IntegrationRepository } = await import("@/lib/domain/integration/integration.repository");
+    await IntegrationRepository.saveInstagramIntegration({
+      userId,
+      token: pageAccessToken || accessToken,
+      instagramId,
+      pageId,
+      username: username ?? undefined,
+      fullName: fullName ?? undefined,
+      profilePic: profilePic ?? undefined,
     });
 
     revalidatePath("/integrations");
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations`);
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations?success=connected`);
   } catch (error: any) {
     console.error("[OAuth] Error:", error?.response?.data || error.message);
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/integrations?error=oauth_failed`);

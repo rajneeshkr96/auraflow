@@ -10,10 +10,13 @@ export interface UpdateAutomationDto {
   active?: boolean;
   triggerTypes?: ("DM" | "COMMENT")[];
   keywords?: string[];
-  listenerType?: "MESSAGE" | "SMART_AI";
+  listenerType?: "MESSAGE" | "SMART_AI" | "PRODUCT_CHECKOUT";
   reply?: string;
   dmReply?: string;
   prompt?: string;
+  personaType?: string;
+  paymentLink?: string;
+  productId?: string;
   posts?: { postid: string; caption?: string; media?: string; mediaType?: string }[];
 }
 
@@ -95,6 +98,9 @@ export class AutomationRepository {
         const listenerData = {
           listener: data.listenerType,
           prompt: data.listenerType === "SMART_AI" ? (data.prompt ?? null) : null,
+          personaType: data.personaType ?? "DEFAULT",
+          paymentLink: data.paymentLink ?? null,
+          productId: data.productId ?? null,
           dmReply: isDm ? (data.reply ?? null) : (data.dmReply ?? null),
           commentReply: isComment ? (data.reply ?? null) : null,
         };

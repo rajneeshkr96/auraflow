@@ -8,11 +8,9 @@ export default async function IntegrationsPage() {
 
   const integrations = await getUserIntegrations();
 
-  const instagramIntegration = integrations?.find((i: any) => i.name === 'INSTAGRAM');
-
   return (
     <IntegrationsClient
-      instagramIntegration={instagramIntegration ?? null}
+      integrations={integrations || []}
     />
   );
 }

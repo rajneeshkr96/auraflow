@@ -47,6 +47,11 @@ model Listener {
   commentReply   String?
   dmReply        String?
   prompt         String?
+  // Persona type: DEFAULT | SALES_CLOSER | CUSTOMER_SUPPORT | INFLUENCER_COMPANION
+  personaType    String?      @default("DEFAULT")
+  // Social commerce product link & checkout
+  productId      String?      @db.ObjectId
+  paymentLink    String?
   // Neural agent ID created per-user when they first use SMART_AI
   neuralAgentId  String?
   // Neural KB ID (from neural-web) attached to this agent for RAG
@@ -75,6 +80,11 @@ model Integration {
   token       String
   instagramId String?         @unique
   pageId      String?
+  username    String?
+  fullName    String?
+  profilePic  String?
+  isActive    Boolean         @default(true)
+  accountType String?         @default("BUSINESS")
   expiresAt   DateTime?
   userId      Int
   createdAt   DateTime        @default(now())
@@ -82,6 +92,23 @@ model Integration {
   conversations Conversation[]
 
   @@map("integrations")
+}
+
+model Product {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      Int
+  name        String
+  description String?
+  price       Float
+  currency    String   @default("INR")
+  paymentUrl  String?
+  imageUrl    String?
+  sku         String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("products")
 }
 
 model Conversation {
@@ -129,6 +156,7 @@ enum TriggerType {
 enum ListenerType {
   MESSAGE
   SMART_AI
+  PRODUCT_CHECKOUT
 }
 
 enum IntegrationType {

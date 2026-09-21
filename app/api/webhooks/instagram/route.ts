@@ -38,11 +38,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  // Non-blocking asynchronous processing
-  WebhookProcessorService.processPayload(body).catch((err) =>
-    console.error("[InstagramWebhookRoute] Processing error:", err)
-  );
-
-  // Return 200 immediately to prevent Meta retry loop
-  return NextResponse.json({ received: true }, { status: 200 });
+  try {
+    console.log("[InstagramWebhook] Incoming payload:", JSON.stringify(body));
+    await WebhookProcessorService.processPayload(body);
+    return NextResponse.json({ status: "ok" }, { status: 200 });
+  } catch (error: any) {
+    console.error("[InstagramWebhook] Processing error:", error);
+    return NextResponse.json({ status: "error", message: error.message }, { status: 500 });
+  }
 }
