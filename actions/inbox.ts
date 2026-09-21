@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { getAuthUserId } from "@/lib/auth";
+import { getAuthUserId } from "@/lib/platform/auth";
 import axios from "axios";
 import { revalidatePath } from "next/cache";
 

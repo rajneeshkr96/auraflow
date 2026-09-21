@@ -8,6 +8,7 @@ import {
   Sparkles, Crown, ShieldCheck, Database, Bell, Inbox, Activity,
 } from "lucide-react";
 import { useCSWSubscriptions } from "@codeswayam/auth";
+import { useAuraflowAccess } from "@/lib/use-auraflow-access";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -34,6 +35,15 @@ export default function MobileShell({ user }: { user?: User | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { subscriptions } = useCSWSubscriptions();
+  const auraflowAccess = useAuraflowAccess();
+  const [subscriptionUrl, setSubscriptionUrl] = useState("");
+
+  useEffect(() => {
+    const returnUrl = encodeURIComponent(`${window.location.origin}/dashboard`);
+    setSubscriptionUrl(
+      `${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/account/subscriptions?returnUrl=${returnUrl}`
+    );
+  }, []);
 
   // Close drawer on route change
   useEffect(() => {
@@ -51,11 +61,21 @@ export default function MobileShell({ user }: { user?: User | null }) {
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() || "U";
 
-  const activeSub = subscriptions.find(
-    (s) => s.status === "active" && (s.productSaasId === "auraflow" || s.planType === "BUNDLE")
-  );
-  const plan = activeSub ? activeSub.productName || activeSub.bundleName || "Pro" : "Free";
-  const isPro = !!activeSub;
+  const activeSub = subscriptions.find((s) => {
+    if (s.status !== "active") return false;
+    if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) return false;
+    const isAura = s.productSaasId?.includes("auraflow") || (s as any).productFamily === "auraflow";
+    const isBundle = s.planType === "BUNDLE";
+    return isAura || isBundle;
+  });
+
+  const isProTier = auraflowAccess.tier === "pro" || auraflowAccess.tier === "enterprise";
+  const isProSub = !!(activeSub && !activeSub.productName?.toLowerCase().includes("free") && !activeSub.productName?.toLowerCase().includes("standard"));
+  const isPro = isProTier || isProSub;
+
+  const plan = auraflowAccess.tier !== "free"
+    ? auraflowAccess.planLabel
+    : (activeSub ? (activeSub.productName || "Pro") : "Free");
 
   const breadcrumbMap: Record<string, string> = {
     "/dashboard": "Dashboard",

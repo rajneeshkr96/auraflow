@@ -9,6 +9,7 @@ import {
   Inbox, Activity,
 } from "lucide-react";
 import { useCSWSubscriptions } from "@codeswayam/auth";
+import { useAuraflowAccess } from "@/lib/use-auraflow-access";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const appNavItems = [
 export default function Sidebar({ user }: { user?: User | null }) {
   const pathname = usePathname();
   const { subscriptions } = useCSWSubscriptions();
+  const auraflowAccess = useAuraflowAccess();
   const [subscriptionUrl, setSubscriptionUrl] = useState("");
 
   useEffect(() => {
@@ -46,11 +48,22 @@ export default function Sidebar({ user }: { user?: User | null }) {
     ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : (user?.email?.[0]?.toUpperCase() || 'U');
 
-  const activeSub = subscriptions.find(
-    (s) => s.status === 'active' && (s.productSaasId === 'auraflow' || s.planType === 'BUNDLE')
-  );
-  const plan = activeSub ? (activeSub.productName || activeSub.bundleName || 'Pro') : 'Free';
-  const isPro = !!activeSub;
+  // Find active non-expired Auraflow subscription from @codeswayam/auth
+  const activeSub = subscriptions.find((s) => {
+    if (s.status !== 'active') return false;
+    if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) return false;
+    const isAura = s.productSaasId?.includes('auraflow') || (s as any).productFamily === 'auraflow';
+    const isBundle = s.planType === 'BUNDLE';
+    return isAura || isBundle;
+  });
+
+  const isProTier = auraflowAccess.tier === 'pro' || auraflowAccess.tier === 'enterprise';
+  const isProSub = !!(activeSub && !activeSub.productName?.toLowerCase().includes('free') && !activeSub.productName?.toLowerCase().includes('standard'));
+  const isPro = isProTier || isProSub;
+
+  const plan = auraflowAccess.tier !== 'free'
+    ? auraflowAccess.planLabel
+    : (activeSub ? (activeSub.productName || 'Pro') : 'Free');
 
   return (
     <aside className="flex flex-col h-full w-72 bg-background border-r border-border shrink-0">

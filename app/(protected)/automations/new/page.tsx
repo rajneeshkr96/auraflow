@@ -6,10 +6,12 @@ export default async function CreateAutomation() {
   const user = await onAuthenticatedUser();
   if (!user || !user.id) return redirect("/sign-in");
 
-  const result = await createAutomation("Untitled Automation");
+  const result = await createAutomation("Untitled Automation", false);
 
-  if (result.success && result.data?.id) {
+  if (result.success && "data" in result && result.data?.id) {
     redirect(`/automations/${result.data.id}`);
+  } else if ("needsUpgrade" in result && result.needsUpgrade) {
+    redirect("/automations?limitReached=true");
   } else {
     redirect("/automations");
   }

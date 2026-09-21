@@ -1,116 +1,18 @@
 "use client";
 
-/**
- * useAuraflowAccess
- * ─────────────────
- * Single source of truth for plan-based feature access in Auraflow.
- *
- * Plan hierarchy (from core-api):
- *   free       → static replies only; AI via points (deducted per use)
- *   standard   → unlimited DM/post automation; AI via points
- *   pro        → AI included (no point deduction); all features
- *   enterprise → AI included; multiple accounts; all features
- *
- * Points rule:
- *   - If plan includes AI (pro/enterprise) → points NOT deducted
- *   - Otherwise → points deducted per AI call (featureKey: "ai_reply")
- */
-
 import { useMemo } from "react";
-import { useCSWSubscriptions, useCSWCredits } from "@codeswayam/auth";
-
-// ── Plan tier definitions ──────────────────────────────────────────────────────
+import { useAppAccess, AppAccess } from "@codeswayam/access";
 
 export type AuraflowTier = "free" | "standard" | "pro" | "enterprise";
 
-interface TierConfig {
-  label: string;
-  aiIncluded: boolean;          // true = no point deduction for AI
-  maxAutomations: number;       // -1 = unlimited
-  maxConnections: number;       // -1 = unlimited
-  maxAiResponses: number;       // -1 = unlimited (only relevant when aiIncluded=false)
-  canUseSmartAi: boolean;       // can select SMART_AI listener at all
-  canExportLeads: boolean;
-  canUseAnalytics: boolean;
-}
-
-const TIER_CONFIG: Record<AuraflowTier, TierConfig> = {
-  free: {
-    label: "Free",
-    aiIncluded: false,
-    maxAutomations: 5,
-    maxConnections: 1,
-    maxAiResponses: 50,
-    canUseSmartAi: true,   // allowed but costs points
-    canExportLeads: false,
-    canUseAnalytics: false,
-  },
-  standard: {
-    label: "Standard",
-    aiIncluded: false,
-    maxAutomations: -1,
-    maxConnections: 1,
-    maxAiResponses: 500,
-    canUseSmartAi: true,   // allowed but costs points
-    canExportLeads: false,
-    canUseAnalytics: true,
-  },
-  pro: {
-    label: "Pro",
-    aiIncluded: true,      // AI is FREE — no point deduction
-    maxAutomations: -1,
-    maxConnections: 1,
-    maxAiResponses: -1,
-    canUseSmartAi: true,
-    canExportLeads: true,
-    canUseAnalytics: true,
-  },
-  enterprise: {
-    label: "Enterprise",
-    aiIncluded: true,      // AI is FREE — no point deduction
-    maxAutomations: -1,
-    maxConnections: -1,
-    maxAiResponses: -1,
-    canUseSmartAi: true,
-    canExportLeads: true,
-    canUseAnalytics: true,
-  },
-};
-
-// ── Resolve tier from subscription planTier string ────────────────────────────
-
-function resolveTier(sub: any): AuraflowTier {
-  // Check every field that might carry the tier name
-  const candidates = [
-    sub?.planTier,
-    sub?.planName,
-    sub?.productName,
-    sub?.bundleName,
-    sub?.plan,
-    sub?.tier,
-  ]
-    .filter(Boolean)
-    .map((v: string) => v.toLowerCase())
-    .join(" ");
-
-  if (candidates.includes("enterprise")) return "enterprise";
-  if (candidates.includes("pro")) return "pro";
-  if (candidates.includes("standard")) return "standard";
-  // If subscribed but tier unrecognised, grant pro (paid user)
-  if (sub) return "pro";
-  return "free";
-}
-
-// ── Hook ──────────────────────────────────────────────────────────────────────
-
 export interface AuraflowAccess {
-  /** Resolved plan tier */
+  /** Resolved plan tier name */
   tier: AuraflowTier;
   /** Human-readable plan label */
   planLabel: string;
-  /** Whether the user has any active auraflow subscription */
+  /** Whether the user has an active auraflow subscription */
   isSubscribed: boolean;
-  /** Whether AI is included in the plan (no point deduction) */
+  /** Whether AI is included in the plan without deducting credits */
   aiIncluded: boolean;
   /** Whether the user can use SMART_AI listener */
   canUseSmartAi: boolean;
@@ -118,7 +20,7 @@ export interface AuraflowAccess {
   canExportLeads: boolean;
   /** Whether the user can access analytics */
   canUseAnalytics: boolean;
-  /** Usage limits for the current tier */
+  /** Usage limits resolved from Core-API */
   limits: {
     automations: number;
     connections: number;
@@ -126,54 +28,60 @@ export interface AuraflowAccess {
   };
   /** Current credit balance */
   creditBalance: number;
-  /** Whether user can afford one AI call (only relevant when aiIncluded=false) */
+  /** Whether user can afford one AI call (or if AI is included) */
   canAffordAiCall: boolean;
-  /** Cost of one AI reply in points (0 if aiIncluded) */
+  /** Cost of one AI reply in points (0 if included in plan) */
   aiCallCost: number;
-  /** Whether subscription data has loaded */
+  /** Whether entitlements data has loaded */
   isLoaded: boolean;
-  /** The active subscription object */
+  /** The active subscription object from Core-API */
   subscription: any | null;
+  /** Raw @codeswayam/access AppAccess context */
+  access: AppAccess;
+  /** Re-fetch entitlements from Core-API */
+  refresh: () => void;
 }
 
-/** Cost in points for one AI reply when not included in plan */
-const AI_REPLY_POINT_COST = 5;
-
+/**
+ * useAuraflowAccess
+ * ─────────────────
+ * Unified facade connecting Auraflow to the Core-API Entitlements engine.
+ * Eliminates client-side hardcoded tiers and string guessing.
+ */
 export function useAuraflowAccess(): AuraflowAccess {
-  const { subscriptions, isLoaded: subsLoaded } = useCSWSubscriptions();
-  const { balance, isLoaded: creditsLoaded } = useCSWCredits();
+  const access = useAppAccess("auraflow");
 
   return useMemo(() => {
-    const activeSub = subscriptions.find(
-      (s) =>
-        s.status === "active" &&
-        (s.productSaasId?.includes("auraflow") ||
-          (s as any).productFamily === "auraflow" ||
-          s.planType === "BUNDLE")
-    );
+    const tierName = (access.tier?.name?.toLowerCase() || "free") as AuraflowTier;
+    const aiIncluded = !!access.tier?.aiIncluded;
 
-    const tier = resolveTier(activeSub);
-    const config = TIER_CONFIG[tier];
-    const aiCallCost = config.aiIncluded ? 0 : AI_REPLY_POINT_COST;
+    const automationsLimit = access.usage["automations"]?.limit ?? (access.hasTier("pro") ? -1 : 5);
+    const connectionsLimit = (access.features["maxConnections"] as number) ?? (access.hasTier("pro") ? -1 : 1);
+    const aiResponsesLimit = access.usage["ai_responses"]?.limit ?? (aiIncluded ? -1 : 50);
+
+    const aiPointCost = aiIncluded ? 0 : (access.credits.featureCosts["ai_reply"] ?? 5);
+    const canAffordAiCall = aiIncluded || access.credits.balance >= aiPointCost;
 
     return {
-      tier,
-      planLabel: config.label,
-      isSubscribed: !!activeSub,
-      aiIncluded: config.aiIncluded,
-      canUseSmartAi: config.canUseSmartAi,
-      canExportLeads: config.canExportLeads,
-      canUseAnalytics: config.canUseAnalytics,
+      tier: tierName,
+      planLabel: access.tier?.label || "Free",
+      isSubscribed: !!access.subscription && access.subscription.status === "active",
+      aiIncluded,
+      canUseSmartAi: access.hasFeature("canUseSmartAi") || access.hasTier("standard"),
+      canExportLeads: access.hasFeature("canExportLeads") || access.hasTier("pro"),
+      canUseAnalytics: access.hasFeature("canUseAnalytics") || access.hasTier("standard"),
       limits: {
-        automations: config.maxAutomations,
-        connections: config.maxConnections,
-        aiResponses: config.maxAiResponses,
+        automations: automationsLimit,
+        connections: connectionsLimit,
+        aiResponses: aiResponsesLimit,
       },
-      creditBalance: balance,
-      canAffordAiCall: config.aiIncluded || balance >= AI_REPLY_POINT_COST,
-      aiCallCost,
-      isLoaded: subsLoaded && creditsLoaded,
-      subscription: activeSub ?? null,
+      creditBalance: access.credits.balance,
+      canAffordAiCall,
+      aiCallCost: aiPointCost,
+      isLoaded: access.isLoaded,
+      subscription: access.subscription,
+      access,
+      refresh: access.refresh,
     };
-  }, [subscriptions, balance, subsLoaded, creditsLoaded]);
+  }, [access]);
 }

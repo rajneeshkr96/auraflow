@@ -8,8 +8,15 @@ export default async function TemplatesPage() {
   if (!user) redirect('/sign-in');
 
   // Determine subscription tier for filtering
-  const sub = (user as any).subscriptions?.[0];
-  const tier = sub?.plan?.toUpperCase() || 'FREE';
+  const activeSub = (user as any).subscriptions?.find((s: any) => {
+    if (s.status !== 'active') return false;
+    if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) return false;
+    return s.productSaasId?.includes('auraflow') || s.productFamily === 'auraflow' || s.planType === 'BUNDLE';
+  });
+
+  const tier = (activeSub?.productName?.toUpperCase().includes('PRO') ? 'PRO' :
+                activeSub?.productName?.toUpperCase().includes('STANDARD') ? 'STANDARD' :
+                activeSub?.plan?.toUpperCase()) || 'FREE';
 
   // Fetch real templates from DB (tier-gated)
   const [templates, categories] = await Promise.all([

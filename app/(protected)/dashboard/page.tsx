@@ -14,9 +14,17 @@ export default async function DashboardPage() {
     getUsageStats().catch(() => null),
   ]);
 
-  // Resolve subscription tier
-  const sub = (user as any).subscriptions?.[0];
-  const tierKey = (sub?.plan?.toLowerCase() || 'free') as 'free' | 'standard' | 'pro' | 'enterprise';
+  // Resolve active Auraflow subscription and tier
+  const activeSub = (user as any).subscriptions?.find((s: any) => {
+    if (s.status !== 'active') return false;
+    if (s.expiresAt && new Date(s.expiresAt).getTime() < Date.now()) return false;
+    return s.productSaasId?.includes('auraflow') || s.productFamily === 'auraflow' || s.planType === 'BUNDLE';
+  });
+
+  const rawTier = (activeSub?.productName?.toLowerCase().includes('pro') ? 'pro' :
+                  activeSub?.productName?.toLowerCase().includes('standard') ? 'standard' :
+                  activeSub?.plan?.toLowerCase()) || 'free';
+  const tierKey = rawTier as 'free' | 'standard' | 'pro' | 'enterprise';
   const limits = getSubscriptionLimits(tierKey);
 
   return (

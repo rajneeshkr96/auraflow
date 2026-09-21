@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getUserProfile } from "@/actions/user";
+import { getAuthSession } from "@/lib/platform/auth";
+import { isAdmin } from "@/lib/platform/rbac";
 import type { ReactNode } from "react";
 
 /**
@@ -7,9 +8,9 @@ import type { ReactNode } from "react";
  * Only users with role "admin" or "superadmin" can access /admin routes.
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const user = await getUserProfile();
+  const session = await getAuthSession();
 
-  if (!user || (user.role !== "admin" && user.role !== "superadmin")) {
+  if (!session.user || !isAdmin(session.user)) {
     redirect("/dashboard");
   }
 

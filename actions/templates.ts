@@ -1,12 +1,11 @@
 "use server";
 
-import { getAuthUserId } from "@/lib/auth";
+import { getAuthUserId } from "@/lib/platform/auth";
+import { checkQuota } from "@/lib/platform/entitlements";
+import { AutomationRepository } from "@/lib/domain/automation/automation.repository";
+import { trackPlatformUsage } from "@/lib/platform/metering";
 import { TemplateService } from "@/lib/templates";
 import { revalidatePath } from "next/cache";
-
-async function getCurrentUserId() {
-  return getAuthUserId();
-}
 
 export async function getTemplates(tier?: string, category?: string) {
   return TemplateService.getTemplates(tier, category);
@@ -17,11 +16,26 @@ export async function getTemplate(id: string) {
 }
 
 export async function useTemplate(templateId: string) {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
+
+  // Check quota before creating automation from template
+  const currentCount = await AutomationRepository.countByUserId(userId);
+  const quota = await checkQuota("automations", currentCount);
+
+  if (!quota.allowed) {
+    return {
+      success: false,
+      error: `Automation limit reached (${currentCount}/${quota.limit}). Upgrade your plan to add more automations.`,
+      needsUpgrade: true,
+      currentCount,
+      limit: quota.limit,
+    };
+  }
 
   try {
     const automation = await TemplateService.useTemplate(templateId, userId);
+    trackPlatformUsage("automations", 1, userId, "async").catch(() => null);
     revalidatePath("/automations");
     return { success: true, data: automation };
   } catch (error) {
@@ -34,11 +48,10 @@ export async function getTemplateCategories() {
 }
 
 export async function seedTemplates() {
-  // Only allow in development
-  if (process.env.NODE_ENV !== 'development') {
+  if (process.env.NODE_ENV !== "development") {
     return { success: false, error: "Not allowed in production" };
   }
-  
+
   await TemplateService.seedDefaultTemplates();
   return { success: true };
 }

@@ -14,8 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { toggleAutomation, deleteAutomation, updateAutomation } from '@/actions/automations';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useAuraflowAccess } from '@/lib/use-auraflow-access';
+import UpgradeModal from '@/components/global/upgrade-modal';
 
 function getAutomationType(automation: any) {
     const hasDm = automation.triggers?.some((t: any) => t.type === 'DM');
@@ -26,12 +28,26 @@ function getAutomationType(automation: any) {
 
 export default function AutomationsClient({ automations: initial }: { automations: any[] }) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const access = useAuraflowAccess();
+    const [upgradeModalOpen, setUpgradeModalOpen] = useState(
+        searchParams?.get('limitReached') === 'true'
+    );
     const [automations, setAutomations] = useState(initial);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('all');
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const [renamingId, setRenamingId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState('');
+
+    const isAtLimit = access.isLoaded && access.limits.automations !== -1 && automations.length >= access.limits.automations;
+
+    const handleCreateClick = (e: React.MouseEvent) => {
+        if (isAtLimit) {
+            e.preventDefault();
+            setUpgradeModalOpen(true);
+        }
+    };
 
     const filtered = automations.filter(a => {
         const matchSearch = a.name?.toLowerCase().includes(search.toLowerCase());
@@ -104,6 +120,7 @@ export default function AutomationsClient({ automations: initial }: { automation
                     </div>
                     <Link
                         href="/automations/new"
+                        onClick={handleCreateClick}
                         className="flex items-center justify-center gap-2 h-16 px-8 bg-primary text-white text-lg font-bold rounded-full transition-all shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 w-full sm:w-auto"
                     >
                         <Plus className="w-5 h-5" />
@@ -143,7 +160,7 @@ export default function AutomationsClient({ automations: initial }: { automation
 
             {/* List */}
             {filtered.length === 0 ? (
-                <EmptyState hasSearch={!!search} />
+                <EmptyState hasSearch={!!search} onCreateClick={handleCreateClick} />
             ) : (
                 <motion.div
                     initial={{ opacity: 0 }}
@@ -181,26 +198,39 @@ export default function AutomationsClient({ automations: initial }: { automation
                                         />
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <button className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground bg-secondary rounded-xl transition-all">
-                                                    <MoreHorizontal className="w-5 h-5" />
+                                                <button
+                                                    disabled={loadingId === automation.id}
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary transition-all"
+                                                >
+                                                    <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                                                 </button>
                                             </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-48 shadow-xl border-border">
-                                                <DropdownMenuItem asChild className="rounded-xl p-3 font-bold cursor-pointer">
-                                                    <Link href={`/automations/${automation.id}`} className="flex items-center gap-3">
-                                                        <Edit className="w-4 h-4 text-primary" /> Edit Flow
-                                                    </Link>
+                                            <DropdownMenuContent align="end" className="w-48 rounded-2xl p-2">
+                                                <DropdownMenuItem
+                                                    onClick={() => router.push(`/automations/${automation.id}`)}
+                                                    className="flex items-center gap-2 p-3 font-semibold rounded-xl cursor-pointer"
+                                                >
+                                                    <Edit className="w-4 h-4" /> Edit Flow
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
-                                                    onClick={() => { setRenamingId(automation.id); setRenameValue(automation.name || ''); }}
-                                                    className="rounded-xl p-3 font-bold cursor-pointer flex items-center gap-3"
+                                                    onClick={() => {
+                                                        setRenamingId(automation.id);
+                                                        setRenameValue(automation.name || '');
+                                                    }}
+                                                    className="flex items-center gap-2 p-3 font-semibold rounded-xl cursor-pointer"
                                                 >
-                                                    <Pencil className="w-4 h-4 text-primary" /> Rename
+                                                    <Pencil className="w-4 h-4" /> Rename
                                                 </DropdownMenuItem>
-                                                <DropdownMenuSeparator className="my-1" />
+                                                <DropdownMenuItem
+                                                    onClick={() => handleToggle(automation.id, automation.active)}
+                                                    className="flex items-center gap-2 p-3 font-semibold rounded-xl cursor-pointer"
+                                                >
+                                                    <Power className="w-4 h-4" /> {automation.active ? 'Pause' : 'Activate'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem
                                                     onClick={() => handleDelete(automation.id, automation.name)}
-                                                    className="rounded-xl p-3 font-bold cursor-pointer flex items-center gap-3 text-destructive"
+                                                    className="flex items-center gap-2 p-3 font-semibold text-destructive rounded-xl cursor-pointer hover:bg-destructive/15"
                                                 >
                                                     <Trash2 className="w-4 h-4" /> Delete Flow
                                                 </DropdownMenuItem>
@@ -212,14 +242,22 @@ export default function AutomationsClient({ automations: initial }: { automation
                                 <Link href={`/automations/${automation.id}`} className="block">
                                     {renamingId === automation.id ? (
                                         <div className="flex items-center gap-2 mb-4" onClick={e => e.preventDefault()}>
-                                            <input
+                                            <Input
                                                 value={renameValue}
                                                 onChange={e => setRenameValue(e.target.value)}
-                                                onKeyDown={e => { if (e.key === 'Enter') handleRename(automation.id); if (e.key === 'Escape') setRenamingId(null); }}
-                                                className="flex-1 text-2xl font-bold text-foreground bg-transparent border-b-2 border-primary outline-none py-1"
-                                                maxLength={100}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') handleRename(automation.id);
+                                                    if (e.key === 'Escape') setRenamingId(null);
+                                                }}
                                                 autoFocus
+                                                className="h-10 text-xl font-bold rounded-xl border-primary"
                                             />
+                                            <button
+                                                onClick={() => handleRename(automation.id)}
+                                                className="px-3 h-10 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90"
+                                            >
+                                                Save
+                                            </button>
                                         </div>
                                     ) : (
                                         <h3 className="text-2xl font-bold text-foreground tracking-tight group-hover:text-primary transition-colors truncate mb-4">
@@ -265,11 +303,20 @@ export default function AutomationsClient({ automations: initial }: { automation
                     })}
                 </motion.div>
             )}
+
+            <UpgradeModal
+                isOpen={upgradeModalOpen}
+                onClose={() => setUpgradeModalOpen(false)}
+                title="Automation Limit Reached"
+                description={`You have reached your plan limit of ${access.limits.automations} automations. Upgrade to Pro for up to 100 automations and AI closer agents.`}
+                targetTier="pro"
+                featureName="Higher Automation Limits"
+            />
         </div>
     );
 }
 
-function EmptyState({ hasSearch }: { hasSearch: boolean }) {
+function EmptyState({ hasSearch, onCreateClick }: { hasSearch: boolean; onCreateClick: (e: React.MouseEvent) => void }) {
     return (
         <div className="bg-white border border-border rounded-[48px] p-24 text-center flex flex-col items-center">
             <div className="w-24 h-24 bg-secondary rounded-[40px] flex items-center justify-center mb-8">
@@ -286,6 +333,7 @@ function EmptyState({ hasSearch }: { hasSearch: boolean }) {
             {!hasSearch && (
                 <Link
                     href="/automations/new"
+                    onClick={onCreateClick}
                     className="flex items-center gap-3 h-16 px-10 bg-primary text-white font-bold rounded-full hover:scale-105 active:scale-95 transition-all text-lg shadow-xl shadow-primary/20"
                 >
                     <Plus className="w-5 h-5" />

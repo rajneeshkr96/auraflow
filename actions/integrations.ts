@@ -1,65 +1,47 @@
 "use server";
 
-import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getAuthUserId } from "@/lib/auth";
-import axios from "axios";
-
-async function getCurrentUserId() {
-  return getAuthUserId();
-}
+import { getAuthUserId } from "@/lib/platform/auth";
+import { IntegrationRepository } from "@/lib/domain/integration/integration.repository";
+import { InstagramService } from "@/lib/domain/integration/instagram.service";
 
 export async function getIntegrations() {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return [];
-
-  return prisma.integration.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-  });
+  return IntegrationRepository.findByUserId(userId);
 }
 
 export async function getInstagramPosts() {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return { status: 401, data: [] };
 
-  const integration = await prisma.integration.findFirst({
-    where: { userId, name: "INSTAGRAM" },
-  });
-
+  const integration = await IntegrationRepository.findPrimaryInstagram(userId);
   if (!integration?.token || !integration.instagramId) return { status: 404, data: [] };
 
   try {
-    // Instagram Business Login tokens must use graph.instagram.com
-    // Facebook Login (Page) tokens use graph.facebook.com
-    const useInstagramLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
-    const mediaUrl = useInstagramLogin
-      ? `https://graph.instagram.com/me/media`
-      : `https://graph.facebook.com/v21.0/${integration.instagramId}/media`;
-
-    const response = await axios.get(mediaUrl, {
-      params: {
-        fields: "id,caption,media_url,media_type,timestamp,thumbnail_url,permalink",
-        access_token: integration.token,
-        limit: 20,
-      },
-    });
-    return { status: 200, data: response.data.data };
+    const isBusinessLogin = !!process.env.INSTAGRAM_APP_CLIENT_ID;
+    const posts = await InstagramService.getMediaPosts(
+      integration.token,
+      integration.instagramId,
+      isBusinessLogin
+    );
+    return { status: 200, data: posts };
   } catch {
     return { status: 500, data: [] };
   }
 }
 
 export const onDisconnectIntegration = async (id: string) => {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return { status: 401, message: "Unauthorized" };
 
-  const integration = await prisma.integration.findFirst({ where: { id, userId } });
-  if (!integration) return { status: 404, message: "Not found" };
-
-  await prisma.integration.delete({ where: { id } });
-  revalidatePath("/integrations");
-  return { status: 200, message: "Disconnected successfully" };
+  try {
+    await IntegrationRepository.delete(id, userId);
+    revalidatePath("/integrations");
+    return { status: 200, message: "Disconnected successfully" };
+  } catch {
+    return { status: 404, message: "Integration not found" };
+  }
 };
 
 export async function createIntegration(data: {
@@ -68,19 +50,14 @@ export async function createIntegration(data: {
   pageId?: string;
   name: "INSTAGRAM";
 }) {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
 
-  // Remove existing integration for this user+type
-  await prisma.integration.deleteMany({ where: { userId, name: data.name } });
-
-  // Remove any integration with same instagramId (cross-user reconnect)
-  if (data.instagramId) {
-    await prisma.integration.deleteMany({ where: { instagramId: data.instagramId } });
-  }
-
-  await prisma.integration.create({
-    data: { userId, token: data.token, instagramId: data.instagramId, pageId: data.pageId, name: data.name },
+  await IntegrationRepository.saveInstagramIntegration({
+    userId,
+    token: data.token,
+    instagramId: data.instagramId,
+    pageId: data.pageId,
   });
 
   revalidatePath("/integrations");

@@ -1,15 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { sdk } from "@codeswayam/api-client";
-import { prisma } from "@/lib/db";
-import { getAuthUserId } from "@/lib/auth";
-
-async function getAuthCookie() {
-  const cookieStore = await cookies();
-  return cookieStore.get("Authentication");
-}
+import { getRawAuthToken, getAuthUserId } from "@/lib/platform/auth";
+import { IntegrationRepository } from "@/lib/domain/integration/integration.repository";
 
 const getAuthorizedSDK = (token: string) => ({
   headers: {
@@ -20,14 +14,13 @@ const getAuthorizedSDK = (token: string) => ({
 
 /** Fetches comprehensive user context (profile, subscriptions, wallet, integrations) */
 export const onAuthenticatedUser = async () => {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) redirect("/sign-in");
+  const token = await getRawAuthToken();
+  if (!token) redirect("/sign-in");
 
   try {
-    const authOptions = getAuthorizedSDK(authCookie.value);
+    const authOptions = getAuthorizedSDK(token);
     const fullProfile = await sdk.getFullProfile(authOptions);
 
-    // Integrations now come from MongoDB — no aura-api call needed
     const integrations = await getUserIntegrations();
 
     return {
@@ -45,11 +38,11 @@ export const onAuthenticatedUser = async () => {
 
 /** Fetches basic user profile from Core API */
 export const getUserProfile = async () => {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) return null;
+  const token = await getRawAuthToken();
+  if (!token) return null;
 
   try {
-    const authOptions = getAuthorizedSDK(authCookie.value);
+    const authOptions = getAuthorizedSDK(token);
     const profile = await sdk.auth.getProfile(authOptions);
     return profile?.data || profile;
   } catch (error: any) {
@@ -62,11 +55,11 @@ export const getUserProfile = async () => {
 
 /** Update user profile via Core API */
 export const updateUserProfile = async (data: { name?: string }) => {
-  const authCookie = await getAuthCookie();
-  if (!authCookie) return { success: false, error: "Unauthorized" };
+  const token = await getRawAuthToken();
+  if (!token) return { success: false, error: "Unauthorized" };
 
   try {
-    const authOptions = getAuthorizedSDK(authCookie.value);
+    const authOptions = getAuthorizedSDK(token);
     const response = await sdk.request("/users/profile", {
       ...authOptions,
       method: "PATCH",
@@ -79,16 +72,13 @@ export const updateUserProfile = async (data: { name?: string }) => {
   }
 };
 
-/** Fetches user integrations directly from MongoDB */
+/** Fetches user integrations directly from MongoDB via Repository */
 export const getUserIntegrations = async () => {
   const userId = await getAuthUserId();
   if (!userId) return [];
 
   try {
-    return await prisma.integration.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    return await IntegrationRepository.findByUserId(userId);
   } catch (error: any) {
     console.error("getUserIntegrations Error:", error.message);
     return [];

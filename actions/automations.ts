@@ -1,238 +1,131 @@
 "use server";
 
-import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { getAuthUserId } from "@/lib/auth";
-
-async function getCurrentUserId() {
-  return getAuthUserId();
-}
+import { getAuthUserId } from "@/lib/platform/auth";
+import { AutomationService } from "@/lib/domain/automation/automation.service";
+import { getPlatformEntitlements } from "@/lib/platform/entitlements";
+import { UpdateAutomationDto } from "@/lib/domain/automation/automation.repository";
 
 export async function getAutomations() {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return [];
-
-  return prisma.automation.findMany({
-    where: { userId },
-    include: { triggers: true, keywords: true, listener: true, posts: true },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    return await AutomationService.getAutomations(userId);
+  } catch (error: any) {
+    console.error("getAutomations error:", error?.message || error);
+    return [];
+  }
 }
 
 export async function getAutomationStats() {
-  const userId = await getCurrentUserId();
-  if (!userId) return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
-
-  // Use simple counts for now to avoid analytics dependency
-  const [total, active, triggers] = await Promise.all([
-    prisma.automation.count({ where: { userId } }),
-    prisma.automation.count({ where: { userId, active: true } }),
-    prisma.trigger.count({
-      where: { automation: { userId } },
-    }),
-  ]);
-
-  return { 
-    totalAutomations: total, 
-    activeAutomations: active, 
-    totalTriggers: triggers,
-    totalReplies: 0 // Will be updated when analytics is fully set up
-  };
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
+  }
+  try {
+    return await AutomationService.getStats(userId);
+  } catch (error: any) {
+    console.error("getAutomationStats error:", error?.message || error);
+    return { totalAutomations: 0, activeAutomations: 0, totalTriggers: 0, totalReplies: 0 };
+  }
 }
 
 export async function getAutomationById(id: string) {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return null;
-
-  return prisma.automation.findFirst({
-    where: { id, userId },
-    include: { triggers: true, keywords: true, listener: true, posts: true },
-  });
+  try {
+    return await AutomationService.getAutomationById(id, userId);
+  } catch (error: any) {
+    console.error("getAutomationById error:", error?.message || error);
+    return null;
+  }
 }
 
-export async function createAutomation(name?: string) {
-  const userId = await getCurrentUserId();
+export async function createAutomation(name?: string, shouldRevalidate: boolean = true) {
+  const userId = await getAuthUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
 
-  // Simple automation count check for now
-  const currentCount = await prisma.automation.count({ where: { userId } });
-  const freeLimit = 5; // Free tier limit
-  
-  if (currentCount >= freeLimit) {
-    return { 
-      success: false, 
-      error: `Automation limit reached (${currentCount}/${freeLimit}). Upgrade to create more automations.`,
-      needsUpgrade: true
-    };
-  }
-
-  const automation = await prisma.automation.create({
-    data: { userId, name: name?.trim() || "Untitled" },
+  const result = await AutomationService.createAutomation({
+    userId,
+    name: name?.trim() || "Untitled",
   });
 
-  return { success: true, data: automation };
+  if (result.success && shouldRevalidate) {
+    try {
+      revalidatePath("/automations");
+    } catch {
+      // Ignore if called during server component render
+    }
+  }
+
+  return result;
 }
 
-export async function updateAutomation(
-  id: string,
-  data: {
-    name?: string;
-    active?: boolean;
-    triggerTypes?: ("DM" | "COMMENT")[];
-    keywords?: string[];
-    listenerType?: "MESSAGE" | "SMART_AI";
-    reply?: string;
-    dmReply?: string;
-    prompt?: string;
-    posts?: { postid: string; caption?: string; media?: string; mediaType?: string }[];
-  }
-) {
-  const userId = await getCurrentUserId();
+export async function updateAutomation(id: string, data: UpdateAutomationDto) {
+  const userId = await getAuthUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
 
-  const existing = await prisma.automation.findFirst({ where: { id, userId } });
-  if (!existing) return { success: false, error: "Not found" };
+  const result = await AutomationService.updateAutomation(id, userId, data);
 
-  // Universal DM guard
-  if (data.triggerTypes?.includes("DM") && (!data.keywords || data.keywords.length === 0) && data.active !== false) {
-    const universalDm = await prisma.automation.findFirst({
-      where: {
-        userId,
-        active: true,
-        id: { not: id },
-        triggers: { some: { type: "DM" } },
-        keywords: { none: {} },
-      },
-    });
-    if (universalDm) return { success: false, error: "Only one Universal DM automation is allowed." };
+  if (result.success) {
+    revalidatePath(`/automations/${id}`);
+    revalidatePath("/automations");
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 1. Update base
-    await tx.automation.update({
-      where: { id },
-      data: {
-        ...(data.name !== undefined && { name: data.name }),
-        ...(data.active !== undefined && { active: data.active }),
-      },
-    });
-
-    // 2. Triggers
-    if (data.triggerTypes) {
-      await tx.trigger.deleteMany({ where: { automationId: id } });
-      if (data.triggerTypes.length > 0) {
-        await tx.trigger.createMany({
-          data: data.triggerTypes.map((type) => ({ type, automationId: id })),
-        });
-      }
-    }
-
-    // 3. Keywords
-    if (data.keywords !== undefined) {
-      await tx.keyword.deleteMany({ where: { automationId: id } });
-      if (data.keywords.length > 0) {
-        await tx.keyword.createMany({
-          data: data.keywords.map((word) => ({ word, automationId: id })),
-        });
-      }
-    }
-
-    // 4. Listener
-    if (data.listenerType) {
-      const isDm = data.triggerTypes?.includes("DM");
-      const isComment = data.triggerTypes?.includes("COMMENT");
-      const listenerData = {
-        listener: data.listenerType,
-        prompt: data.listenerType === "SMART_AI" ? (data.prompt ?? null) : null,
-        dmReply: isDm ? (data.reply ?? null) : (data.dmReply ?? null),
-        commentReply: isComment ? (data.reply ?? null) : null,
-      };
-
-      const upserted = await tx.listener.upsert({
-        where: { automationId: id },
-        create: { automationId: id, ...listenerData },
-        update: listenerData,
-      });
-
-      // Neural agent handling is moved outside the transaction to prevent deadlocks
-    }
-
-    // 5. Posts
-    if (data.posts !== undefined) {
-      await tx.post.deleteMany({ where: { automationId: id } });
-      if (data.posts.length > 0) {
-        await tx.post.createMany({
-          data: data.posts.map((p) => ({ ...p, automationId: id })),
-        });
-      }
-    }
-  });
-
-  // 6. Neural Agent Provisioning & Updating (After Transaction)
-  if (data.listenerType === 'SMART_AI' && data.prompt) {
-    const listener = await prisma.listener.findUnique({ where: { automationId: id } });
-    if (listener) {
-      if (listener.neuralAgentId) {
-        // Agent exists — update prompt
-        const { updateNeuralAgentPrompt } = await import('@/lib/neural');
-        updateNeuralAgentPrompt(listener.neuralAgentId, data.prompt).catch(console.error);
-      } else {
-        // Agent does not exist — provision it immediately
-        const { getOrCreateNeuralAgent } = await import('@/lib/neural');
-        await getOrCreateNeuralAgent(listener.id, userId, data.prompt, data.name || existing.name || "Automation").catch(console.error);
-      }
-    }
-  }
-
-  revalidatePath(`/automations/${id}`);
-  revalidatePath("/automations");
-  return { success: true };
+  return result;
 }
 
 export async function deleteAutomation(id: string) {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return { success: false, error: "Unauthorized" };
 
-  const existing = await prisma.automation.findFirst({
-    where: { id, userId },
-    include: { listener: true },
-  });
-  if (!existing) return { success: false, error: "Not found" };
+  const result = await AutomationService.deleteAutomation(id, userId);
 
-  // Clean up the neural agent if one was provisioned for this automation
-  if (existing.listener?.neuralAgentId) {
-    const { deleteNeuralAgent } = await import('@/lib/neural');
-    await deleteNeuralAgent(existing.listener.neuralAgentId);
+  if (result.success) {
+    revalidatePath("/automations");
   }
 
-  await prisma.automation.delete({ where: { id } });
-  revalidatePath("/automations");
-  return { success: true };
+  return result;
 }
 
 export async function toggleAutomation(id: string, active: boolean) {
-  return updateAutomation(id, { active });
+  const userId = await getAuthUserId();
+  if (!userId) return { success: false, error: "Unauthorized" };
+
+  const result = await AutomationService.toggleAutomation(id, userId, active);
+
+  if (result.success) {
+    revalidatePath("/automations");
+  }
+
+  return result;
 }
 
-// New analytics actions
 export async function getAnalyticsData() {
-  const userId = await getCurrentUserId();
+  const userId = await getAuthUserId();
   if (!userId) return null;
 
-  const { AnalyticsService } = await import('@/lib/analytics');
-  const [stats, weeklyData, performance] = await Promise.all([
-    AnalyticsService.getDashboardStats(userId),
-    AnalyticsService.getWeeklyData(userId),
-    AnalyticsService.getAutomationPerformance(userId)
-  ]);
+  try {
+    const { AnalyticsService } = await import("@/lib/analytics");
+    const [stats, weeklyData, performance] = await Promise.all([
+      AnalyticsService.getDashboardStats(userId),
+      AnalyticsService.getWeeklyData(userId),
+      AnalyticsService.getAutomationPerformance(userId),
+    ]);
 
-  return { stats, weeklyData, performance };
+    return { stats, weeklyData, performance };
+  } catch {
+    return null;
+  }
 }
 
 export async function getUsageStats() {
-  const userId = await getCurrentUserId();
-  if (!userId) return null;
-
-  const { UsageTracker } = await import('@/lib/usage-tracker');
-  return UsageTracker.getUsageStats(userId);
+  const entitlements = await getPlatformEntitlements();
+  return {
+    automations: entitlements.usage["automations"]?.used ?? 0,
+    dmsThisMonth: entitlements.usage["dms"]?.used ?? 0,
+    commentsThisMonth: entitlements.usage["comments"]?.used ?? 0,
+    triggersThisMonth: entitlements.usage["triggers"]?.used ?? 0,
+    resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
+  };
 }
