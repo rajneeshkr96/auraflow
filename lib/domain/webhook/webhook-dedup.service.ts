@@ -32,11 +32,6 @@ export class WebhookDedupService {
       }
     }
 
-    const recent = await ConversationRepository.findRecentDuplicate(params.conversationId, params.text, 2);
-    if (recent) {
-      return { isDuplicate: true, reason: "duplicate_content_window" };
-    }
-
     return { isDuplicate: false };
   }
 

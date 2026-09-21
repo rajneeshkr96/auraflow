@@ -6,7 +6,7 @@ export class ConversationRepository {
     return prisma.conversation.upsert({
       where: { userId_recipientId: { userId, recipientId } },
       create: { userId, recipientId, integrationId },
-      update: {},
+      update: integrationId ? { integrationId } : {},
     });
   }
 

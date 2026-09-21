@@ -20,7 +20,7 @@ async function sendInstagramDm(
 
   const baseUrl = pageId
     ? `https://graph.facebook.com/v21.0/${pageId}/messages`
-    : `https://graph.instagram.com/v21.0/${instagramId}/messages`;
+    : `https://graph.instagram.com/v21.0/me/messages`;
 
   try {
     await axios.post(
@@ -270,13 +270,17 @@ export const sendInboxMessage = async (conversationId: string, text: string) => 
     if (!conversation) throw new Error("Conversation not found");
 
     // Send via Meta API if integration is configured
-    if (conversation.integration) {
+    const integration = conversation.integration || await prisma.integration.findFirst({
+      where: { userId, name: "INSTAGRAM" },
+    });
+
+    if (integration) {
       await sendInstagramDm(
-        conversation.integration.token,
+        integration.token,
         conversation.recipientId,
         text,
-        conversation.integration.pageId,
-        conversation.integration.instagramId
+        integration.pageId,
+        integration.instagramId
       );
     }
 

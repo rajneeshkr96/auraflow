@@ -19,7 +19,7 @@ export class InstagramService {
 
     const baseUrl = params.pageId
       ? `https://graph.facebook.com/v21.0/${params.pageId}/messages`
-      : `https://graph.instagram.com/v21.0/${params.instagramId}/messages`;
+      : `https://graph.instagram.com/v21.0/me/messages`;
 
     try {
       await axios.post(
