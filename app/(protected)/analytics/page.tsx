@@ -4,11 +4,11 @@ import { redirect } from "next/navigation";
 import RealAnalytics from "@/components/analytics/RealAnalytics";
 import { getPlatformEntitlements } from "@/lib/platform/entitlements";
 import { Sparkles, Crown, ArrowRight, BarChart3 } from "lucide-react";
-import { getUpgradeUrl } from "@/lib/platform/sso";
+import { getUpgradeUrl, getSsoLoginUrl } from "@/lib/platform/sso";
 
 export default async function AnalyticsPage() {
   const user = await onAuthenticatedUser();
-  if (!user) redirect("/sign-in");
+  if (!user) redirect(getSsoLoginUrl("/analytics"));
 
   const entitlements = await getPlatformEntitlements();
   const canAccessAnalytics =

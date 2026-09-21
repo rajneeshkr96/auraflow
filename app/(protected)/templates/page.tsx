@@ -2,10 +2,11 @@ import { onAuthenticatedUser } from '@/actions/user';
 import { getTemplates, getTemplateCategories } from '@/actions/templates';
 import { redirect } from 'next/navigation';
 import TemplateMarketplace from '@/components/templates/TemplateMarketplace';
+import { getSsoLoginUrl } from '@/lib/platform/sso';
 
 export default async function TemplatesPage() {
   const user = await onAuthenticatedUser();
-  if (!user) redirect('/sign-in');
+  if (!user) redirect(getSsoLoginUrl('/templates'));
 
   // Determine subscription tier for filtering
   const activeSub = (user as any).subscriptions?.find((s: any) => {

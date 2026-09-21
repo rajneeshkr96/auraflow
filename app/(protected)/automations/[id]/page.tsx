@@ -8,6 +8,7 @@ import EditableName from '@/components/automations/editable-name'
 import { ArrowLeft, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { Badge } from '@codeswayam/ui'
+import { getSsoLoginUrl } from '@/lib/platform/sso'
 
 type Props = {
   params: Promise<{ id: string }>
@@ -16,7 +17,7 @@ type Props = {
 const Page = async ({ params }: Props) => {
   const { id } = await params
   const user = await onAuthenticatedUser()
-  if (!user) return redirect('/sign-in')
+  if (!user) return redirect(getSsoLoginUrl(`/automations/${id}`))
 
   const automation = await getAutomationById(id)
   if (!automation) {

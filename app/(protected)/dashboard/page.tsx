@@ -3,10 +3,11 @@ import { getAutomations, getAutomationStats, getUsageStats } from '@/actions/aut
 import { redirect } from 'next/navigation';
 import DashboardClient from '@/components/dashboard/DashboardClient';
 import { getSubscriptionLimits } from '@/lib/subscription-limits';
+import { getSsoLoginUrl } from '@/lib/platform/sso';
 
 export default async function DashboardPage() {
   const user = await onAuthenticatedUser();
-  if (!user || !user.id) redirect('/sign-in');
+  if (!user || !user.id) redirect(getSsoLoginUrl('/dashboard'));
 
   const [automations, stats, usageStats] = await Promise.all([
     getAutomations(),

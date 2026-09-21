@@ -10,11 +10,15 @@ import { withCSWAuth } from "@codeswayam/auth/middleware";
  * After SSO login the user lands on /auth/callback which exchanges the
  * ticket for a JWT and saves it as both localStorage + Authentication cookie.
  */
+const authBase = process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003";
+const ssoUrl = authBase.endsWith("/sso") ? authBase : `${authBase.replace(/\/$/, "")}/sso`;
+
 export default withCSWAuth({
-    ssoUrl:       process.env.NEXT_PUBLIC_APP_AUTH_URL,
+    ssoUrl,
     callbackPath: "/auth/callback",
     publicPaths: [
         "/",
+        "/auth/callback",
         "/sign-in",
         "/sign-up",
         "/api",            // all /api/* routes (webhooks, integrations callbacks)

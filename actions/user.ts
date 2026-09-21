@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { sdk } from "@codeswayam/api-client";
 import { getRawAuthToken, getAuthUserId } from "@/lib/platform/auth";
 import { IntegrationRepository } from "@/lib/domain/integration/integration.repository";
+import { getSsoLoginUrl } from "@/lib/platform/sso";
 
 const getAuthorizedSDK = (token: string) => ({
   headers: {
@@ -15,7 +16,7 @@ const getAuthorizedSDK = (token: string) => ({
 /** Fetches comprehensive user context (profile, subscriptions, wallet, integrations) */
 export const onAuthenticatedUser = async () => {
   const token = await getRawAuthToken();
-  if (!token) redirect("/sign-in");
+  if (!token) redirect(getSsoLoginUrl());
 
   try {
     const authOptions = getAuthorizedSDK(token);
@@ -30,7 +31,7 @@ export const onAuthenticatedUser = async () => {
       integrations,
     };
   } catch (error: any) {
-    if (error.message === "UNAUTHORIZED") redirect("/sign-in");
+    if (error.message === "UNAUTHORIZED") redirect(getSsoLoginUrl());
     console.error("onAuthenticatedUser Error:", error.message || error);
     return null;
   }
