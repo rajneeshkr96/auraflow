@@ -420,6 +420,7 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                                         listenerId={initialData.listener.id}
                                         automationId={automationId}
                                         initialPrompt={selectedNode.data.prompt as string || ''}
+                                        onPromptChange={(p) => updateNodeData('prompt', p)}
                                     />
                                 ) : selectedNode.data.listenerType === 'SMART_AI' && (
                                     <div className="space-y-4">

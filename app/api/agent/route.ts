@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserId } from "@/lib/auth";
-import NeuralClient from "@codeswayam/neural";
+import { getNeuralClient, PlatformNeuralService } from "@/lib/platform/neural";
 
 const MAX_DAILY_TESTS = 5;
-
-function neural() {
-  return new NeuralClient({
-    apiKey: process.env.NEURAL_API_KEY!,
-    baseUrl: process.env.NEURAL_API_URL || "http://localhost:3006",
-  });
-}
 
 // GET /api/agent?listenerId=xxx
 export async function GET(req: NextRequest) {
@@ -21,22 +14,41 @@ export async function GET(req: NextRequest) {
   if (!listenerId) return NextResponse.json({ error: "listenerId required" }, { status: 400 });
 
   const listener = await prisma.listener.findUnique({ where: { id: listenerId } });
-  if (!listener?.neuralAgentId) return NextResponse.json({ agent: null });
+  if (!listener) return NextResponse.json({ error: "Listener not found" }, { status: 404 });
+
+  let neuralAgentId = listener.neuralAgentId;
+
+  // Auto-provision agent immediately if listener is SMART_AI and not yet provisioned
+  if (!neuralAgentId && listener.listener === "SMART_AI") {
+    try {
+      const automation = await prisma.automation.findUnique({ where: { id: listener.automationId } });
+      neuralAgentId = await PlatformNeuralService.createAgent({
+        name: automation?.name || `auraflow-${listener.id.slice(-6)}`,
+        systemPrompt: listener.prompt || "You are a helpful Instagram assistant. Reply naturally and concisely.",
+        userId,
+      });
+      await prisma.listener.update({ where: { id: listenerId }, data: { neuralAgentId } });
+    } catch (err: any) {
+      console.error("[Agent Route] Auto-provision on GET failed:", err.message);
+    }
+  }
+
+  if (!neuralAgentId) return NextResponse.json({ agent: null, prompt: listener.prompt });
 
   // Also fetch active model request to show in UI
   const modelRequest = await (prisma as any).agentModelRequest?.findFirst({
-    where: { userId, neuralAgentId: listener.neuralAgentId },
+    where: { userId, neuralAgentId },
     orderBy: { createdAt: "desc" },
   }).catch(() => null);
 
   // Fetch all approved model requests for this agent to enable switching in UI
   const approvedRequests = await (prisma as any).agentModelRequest?.findMany({
-    where: { userId, neuralAgentId: listener.neuralAgentId, status: "approved" },
+    where: { userId, neuralAgentId, status: "approved" },
     orderBy: { createdAt: "desc" },
   }).catch(() => []);
 
   try {
-    const agent = await neural().agents.get(listener.neuralAgentId);
+    const agent = await getNeuralClient().agents.get(neuralAgentId);
     return NextResponse.json({
       agent,
       prompt: listener.prompt,
@@ -53,7 +65,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// PATCH /api/agent — update prompt and/or active model
+// PATCH /api/agent — update prompt and/or active model (auto-provisions if missing)
 export async function PATCH(req: NextRequest) {
   const userId = await getAuthUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -67,47 +79,76 @@ export async function PATCH(req: NextRequest) {
   }
 
   const listener = await prisma.listener.findUnique({ where: { id: listenerId } });
-  if (!listener?.neuralAgentId)
-    return NextResponse.json({ error: "No agent found" }, { status: 404 });
+  if (!listener) return NextResponse.json({ error: "Listener not found" }, { status: 404 });
 
-  const updatePayload: any = {};
-  if (prompt !== undefined) {
-    if (!prompt.trim()) return NextResponse.json({ error: "Prompt cannot be empty" }, { status: 400 });
-    updatePayload.systemPrompt = prompt;
-  }
+  let neuralAgentId = listener.neuralAgentId;
 
-  if (model !== undefined) {
-    // Security check: is this model the default platform model ("gemini-1.5-flash") or an approved custom model?
-    const isPlatform = model === "gemini-1.5-flash";
-    let isApproved = false;
-    if (!isPlatform) {
-      const request = await (prisma as any).agentModelRequest.findFirst({
-        where: {
-          userId,
-          neuralAgentId: listener.neuralAgentId,
-          requestedModelId: model,
-          status: "approved",
+  // Auto-provision if agent doesn't exist yet
+  if (!neuralAgentId) {
+    try {
+      const automation = await prisma.automation.findUnique({ where: { id: listener.automationId } });
+      neuralAgentId = await PlatformNeuralService.createAgent({
+        name: automation?.name || `auraflow-${listener.id.slice(-6)}`,
+        systemPrompt: prompt || listener.prompt || "You are a helpful Instagram assistant. Reply naturally and concisely.",
+        userId,
+      });
+      await prisma.listener.update({
+        where: { id: listenerId },
+        data: {
+          neuralAgentId,
+          ...(prompt !== undefined ? { prompt } : {}),
         },
       });
-      if (request) isApproved = true;
+    } catch (err: any) {
+      return NextResponse.json({ error: `Failed to provision AI agent: ${err.message}` }, { status: 500 });
+    }
+  } else {
+    const updatePayload: any = {};
+    if (prompt !== undefined) {
+      if (!prompt.trim()) return NextResponse.json({ error: "Prompt cannot be empty" }, { status: 400 });
+      updatePayload.systemPrompt = prompt;
     }
 
-    if (!isPlatform && !isApproved) {
-      return NextResponse.json({ error: "Model choice not approved or invalid" }, { status: 403 });
+    if (model !== undefined) {
+      const isPlatform = model === "gemini-1.5-flash" || model === "gemini-2.0-flash";
+      let isApproved = false;
+      if (!isPlatform) {
+        const request = await (prisma as any).agentModelRequest.findFirst({
+          where: {
+            userId,
+            neuralAgentId,
+            requestedModelId: model,
+            status: "approved",
+          },
+        });
+        if (request) isApproved = true;
+      }
+
+      if (!isPlatform && !isApproved) {
+        return NextResponse.json({ error: "Model choice not approved or invalid" }, { status: 403 });
+      }
+
+      updatePayload.model = model;
     }
 
-    updatePayload.model = model;
+    // Update in neural-api
+    await getNeuralClient().agents.update(neuralAgentId, updatePayload);
+
+    // If prompt was updated, also update listener record in auraflow db
+    if (prompt !== undefined) {
+      await prisma.listener.update({ where: { id: listenerId }, data: { prompt } });
+    }
   }
 
-  // Update in neural-api
-  await neural().agents.update(listener.neuralAgentId, updatePayload);
-
-  // If prompt was updated, also update listener record in auraflow db
-  if (prompt !== undefined) {
-    await prisma.listener.update({ where: { id: listenerId }, data: { prompt } });
+  // Fetch updated agent to return in response
+  let updatedAgent = null;
+  try {
+    updatedAgent = await getNeuralClient().agents.get(neuralAgentId);
+  } catch {
+    // Non-fatal
   }
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, agent: updatedAgent, prompt: prompt ?? listener.prompt });
 }
 
 // POST /api/agent — test chat with server-side 5/day rate limit
@@ -146,7 +187,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await neural().agents.chat(String(numericId), message, { sessionId });
+    const result = await getNeuralClient().agents.chat(String(numericId), message, { sessionId });
 
     // Increment usage counter
     try {

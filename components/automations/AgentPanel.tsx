@@ -43,9 +43,10 @@ interface Props {
   listenerId: string;
   automationId: string;
   initialPrompt: string;
+  onPromptChange?: (prompt: string) => void;
 }
 
-export default function AgentPanel({ listenerId, automationId, initialPrompt }: Props) {
+export default function AgentPanel({ listenerId, automationId, initialPrompt, onPromptChange }: Props) {
   const [agent, setAgent] = useState<AgentInfo | null>(null);
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [loading, setLoading] = useState(true);
@@ -71,9 +72,14 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
     fetch(`/api/agent?listenerId=${listenerId}`)
       .then((r) => r.json())
       .then((d) => {
-        setAgent(d.agent ?? null);
-        if (d.agent?.systemPrompt) setPrompt(d.agent.systemPrompt);
-        else if (d.prompt) setPrompt(d.prompt);
+        if (d.agent) setAgent(d.agent);
+        if (d.agent?.systemPrompt) {
+          setPrompt(d.agent.systemPrompt);
+          onPromptChange?.(d.agent.systemPrompt);
+        } else if (d.prompt) {
+          setPrompt(d.prompt);
+          onPromptChange?.(d.prompt);
+        }
         if (d.modelRequest) setModelRequest(d.modelRequest);
         if (d.approvedRequests) setApprovedRequests(d.approvedRequests);
       })
@@ -94,9 +100,14 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ listenerId, prompt }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.agent) {
+        setAgent(data.agent);
+      }
+      onPromptChange?.(prompt);
       setSaved(true);
-      toast.success("AI prompt saved");
+      toast.success("AI prompt saved & agent active");
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
       toast.error(err.message || "Failed to save prompt");

@@ -86,17 +86,19 @@ export class AutomationService {
     // Update in database
     await AutomationRepository.update(id, userId, dto);
 
-    // If SMART_AI listener and prompt is set, ensure Neural agent is provisioned or updated
-    if (dto.listenerType === "SMART_AI" && dto.prompt) {
+    // If SMART_AI listener, ensure Neural agent is provisioned or prompt updated
+    const targetListenerType = dto.listenerType || existing.listener?.listener;
+    if (targetListenerType === "SMART_AI") {
+      const promptToUse = dto.prompt || existing.listener?.prompt || "You are a helpful Instagram assistant. Reply naturally and concisely.";
       try {
         if (existing.listener?.neuralAgentId) {
-          // Update prompt in-place
-          await PlatformNeuralService.updatePrompt(existing.listener.neuralAgentId, dto.prompt);
+          if (dto.prompt) {
+            await PlatformNeuralService.updatePrompt(existing.listener.neuralAgentId, dto.prompt);
+          }
         } else {
-          // Provision dedicated agent
           const agentId = await PlatformNeuralService.createAgent({
             name: dto.name || existing.name,
-            systemPrompt: dto.prompt,
+            systemPrompt: promptToUse,
             userId,
           });
           await AutomationRepository.updateListenerAgentId(id, agentId);
