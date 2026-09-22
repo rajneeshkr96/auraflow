@@ -5,7 +5,7 @@ import {
   Search, Send, Bot, User, Check, ShieldAlert, Zap, ZapOff,
   UserCheck, AlertCircle, FileText, Plus, X, MessageSquare,
   Clock, Sparkles, Filter, Smile, Paperclip,
-  CheckSquare, BookOpen, Star, RefreshCw
+  CheckSquare, BookOpen, Star, RefreshCw, Trash2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -16,7 +16,8 @@ import {
   addConversationTag,
   removeConversationTag,
   updateConversationNotes,
-  sendInboxMessage
+  sendInboxMessage,
+  deleteConversation
 } from '@/actions/inbox';
 
 interface Message {
@@ -276,14 +277,7 @@ export default function InboxPage() {
     e.preventDefault();
     if (!newTag.trim() || !selectedThread) return;
     const tag = newTag.trim();
-    if (selectedThread.tags.includes(tag)) {
-      toast.error('Tag already exists');
-      return;
-    }
-
     setNewTag('');
-
-    // Add optimistically
     setThreads(prev => prev.map(t => {
       if (t.id === selectedThread.id) {
         return { ...t, tags: [...t.tags, tag] };
@@ -338,6 +332,26 @@ export default function InboxPage() {
         }
         return t;
       }));
+    }
+  };
+
+  // Delete thread handler
+  const handleDeleteThread = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this conversation?')) return;
+    try {
+      const res = await deleteConversation(id);
+      if (res.success) {
+        setThreads(prev => prev.filter(t => t.id !== id));
+        if (selectedId === id) {
+          setSelectedId('');
+        }
+        toast.success('Conversation deleted');
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (err: any) {
+      toast.error(`Failed to delete conversation: ${err.message || err}`);
     }
   };
 
@@ -445,7 +459,7 @@ export default function InboxPage() {
                     key={thread.id}
                     onClick={() => handleSelectThread(thread.id)}
                     className={cn(
-                      'flex items-start gap-3 p-4 cursor-pointer hover:bg-secondary/40 transition-colors relative border-l-2 border-transparent',
+                      'group flex items-start gap-3 p-4 cursor-pointer hover:bg-secondary/40 transition-colors relative border-l-2 border-transparent',
                       isSelected && 'bg-secondary/70 border-primary',
                       thread.unreadCount > 0 && 'font-semibold bg-primary/5'
                     )}
@@ -490,6 +504,15 @@ export default function InboxPage() {
                       </div>
                     </div>
 
+                    {/* Delete icon on hover */}
+                    <button
+                      onClick={(e) => handleDeleteThread(thread.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 transition-all shrink-0"
+                      title="Delete conversation"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+
                     {/* Unread dot */}
                     {thread.unreadCount > 0 && (
                       <span className="w-2 h-2 rounded-full bg-primary absolute top-4 right-4 animate-pulse" />
@@ -525,7 +548,7 @@ export default function InboxPage() {
                   </div>
                 </div>
 
-                {/* Automation Action Button */}
+                {/* Automation Action Button & Delete Button */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => toggleAi(selectedThread.id)}
@@ -545,6 +568,14 @@ export default function InboxPage() {
                         <Zap className="w-3.5 h-3.5 animate-pulse" /> Activate AI Copilot
                       </>
                     )}
+                  </button>
+
+                  <button
+                    onClick={(e) => handleDeleteThread(selectedThread.id, e)}
+                    className="h-9 px-3.5 rounded-xl border border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 text-xs font-bold flex items-center gap-1.5 transition-all"
+                    title="Delete conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
                 </div>
               </div>

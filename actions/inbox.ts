@@ -23,103 +23,14 @@ async function sendInstagramDm(
   });
 }
 
-async function seedDemoConversations(userId: number) {
-  const integration = await prisma.integration.findFirst({
-    where: { userId },
-  });
 
-  const integrationId = integration?.id || null;
-
-  const demoThreads = [
-    {
-      recipientId: "sarah_k_psid",
-      username: "@sarah_k",
-      fullName: "Sarah Jenkins",
-      avatarUrl: null,
-      aiActive: true,
-      tags: ["Warm Lead", "Freebie", "Instagram"],
-      notes: "Interested in the marketing automations guide. Reached out from the Instagram Reel about lead generation.",
-      messages: [
-        { role: "USER" as const, senderType: "user", content: "Hey, saw your reel on automation!" },
-        { role: "ASSISTANT" as const, senderType: "bot", content: "Hi Sarah! Glad you liked it. We use AI to automate replies and drive 3x more conversions. Would you like to get our free templates checklist?" },
-        { role: "USER" as const, senderType: "user", content: "Yes please, that would be awesome!" },
-        { role: "ASSISTANT" as const, senderType: "bot", content: "Awesome! Please comment #freebie on our latest post, or just ask here and I can fetch the link for you." },
-        { role: "USER" as const, senderType: "user", content: "Hey! Can I get the link to the templates?" },
-      ],
-    },
-    {
-      recipientId: "alex_dev_psid",
-      username: "@alex_dev",
-      fullName: "Alex Rivera",
-      avatarUrl: null,
-      aiActive: true,
-      tags: ["SaaS User", "Tech Support"],
-      notes: "Developer looking to integrate Auraflow webhooks with their custom CRM. Active subscriber since May 2026.",
-      messages: [
-        { role: "USER" as const, senderType: "user", content: "Are webhooks supported on the Pro plan?" },
-        { role: "ASSISTANT" as const, senderType: "bot", content: "Yes, Alex! Our Pro plan supports full outbound webhooks for events like \"automation_triggered\" and \"message_sent\". You can configure them in Settings -> Developer." },
-        { role: "USER" as const, senderType: "user", content: "Can I send payload parameters?" },
-        { role: "ASSISTANT" as const, senderType: "bot", content: "Absolutely! The webhooks payload includes trigger details, commenter info, message content, and custom metadata variables from your flow." },
-        { role: "USER" as const, senderType: "user", content: "Thanks, the setup worked perfectly!" },
-      ],
-    },
-    {
-      recipientId: "emily_w_psid",
-      username: "@emily_w",
-      fullName: "Emily Wong",
-      avatarUrl: null,
-      aiActive: false,
-      tags: ["Hot Lead", "Pricing", "Priority"],
-      notes: "Enterprise prospect. Wants to buy 5 licenses for her social media team. Taking over manually to ensure smooth closing.",
-      messages: [
-        { role: "USER" as const, senderType: "user", content: "Hello, do you offer agency discounts?" },
-        { role: "ASSISTANT" as const, senderType: "bot", content: "Hi Emily! Yes, we have custom agency pricing starting at 5 accounts. I am handing you over to our customer success manager who will assist you shortly." },
-        { role: "ASSISTANT" as const, senderType: "agent", content: "Hi Emily, CSM here! I see you are looking for agency accounts. I can set you up with a 20% discount code for annual plans. Let me know if you would like to proceed!" },
-        { role: "USER" as const, senderType: "user", content: "Is the discount code still active?" },
-      ],
-    },
-  ];
-
-  for (const thread of demoThreads) {
-    const createdConv = await prisma.conversation.create({
-      data: {
-        userId,
-        recipientId: thread.recipientId,
-        username: thread.username,
-        fullName: thread.fullName,
-        avatarUrl: thread.avatarUrl,
-        aiActive: thread.aiActive,
-        tags: thread.tags,
-        notes: thread.notes,
-        integrationId,
-      },
-    });
-
-    let minutesOffset = thread.messages.length;
-    for (const msg of thread.messages) {
-      await prisma.message.create({
-        data: {
-          conversationId: createdConv.id,
-          role: msg.role,
-          senderType: msg.senderType,
-          content: msg.content,
-          createdAt: new Date(Date.now() - minutesOffset * 60 * 1000),
-        },
-      });
-      minutesOffset--;
-    }
-  }
-}
 
 export const getConversations = async (integrationId?: string) => {
   const userId = await getAuthUserId();
   if (!userId) return [];
 
   try {
-    const userIntegrations = await prisma.integration.findMany({
-      where: { userId, name: "INSTAGRAM" },
-    });
-    const hasIntegrations = userIntegrations.length > 0;
+    const DEMO_OR_DUMMY_RECIPIENTS = ["sarah_k_psid", "alex_dev_psid", "emily_w_psid", "0", "1231231234"];
 
     let conversations = await prisma.conversation.findMany({
       where: {
@@ -135,32 +46,33 @@ export const getConversations = async (integrationId?: string) => {
       orderBy: { createdAt: "desc" },
     });
 
-    const DEMO_RECIPIENTS = ["sarah_k_psid", "alex_dev_psid", "emily_w_psid"];
-    const hasRealConversations = conversations.some(
-      (c) => !DEMO_RECIPIENTS.includes(c.recipientId)
-    );
+    // Automatically clean up dummy / empty conversations
+    const dummyIdsToDelete: string[] = [];
+    const validConversations = conversations.filter((c) => {
+      const isDummyRecipient = DEMO_OR_DUMMY_RECIPIENTS.includes(c.recipientId);
+      const isEmpty = c.messages.length === 0;
+      const isDummyPlaceholder = c.fullName?.startsWith("Instagram User") && c.messages.length === 0;
 
-    // If user has real conversations or connected integrations, filter out demo seeds
-    if (hasRealConversations || hasIntegrations) {
-      conversations = conversations.filter(
-        (c) => !DEMO_RECIPIENTS.includes(c.recipientId)
-      );
-    } else if (conversations.length === 0 && !hasIntegrations) {
-      // Only seed demo conversations if user has NO connected accounts and NO real conversations
-      await seedDemoConversations(userId);
-      conversations = await prisma.conversation.findMany({
-        where: { userId },
-        include: {
-          messages: {
-            orderBy: { createdAt: "asc" },
-          },
-          integration: true,
-        },
-      });
+      if (isDummyRecipient || isEmpty || isDummyPlaceholder) {
+        dummyIdsToDelete.push(c.id);
+        return false;
+      }
+      return true;
+    });
+
+    // Delete dummy/empty records from database in background
+    if (dummyIdsToDelete.length > 0) {
+      prisma.message.deleteMany({
+        where: { conversationId: { in: dummyIdsToDelete } },
+      }).then(() => {
+        prisma.conversation.deleteMany({
+          where: { id: { in: dummyIdsToDelete }, userId },
+        }).catch(() => null);
+      }).catch(() => null);
     }
 
     // Sort by last message time or conversation created time
-    return conversations.sort((a, b) => {
+    return validConversations.sort((a, b) => {
       const aTime = a.messages.length > 0 ? new Date(a.messages[a.messages.length - 1].createdAt).getTime() : new Date(a.createdAt).getTime();
       const bTime = b.messages.length > 0 ? new Date(b.messages[b.messages.length - 1].createdAt).getTime() : new Date(b.createdAt).getTime();
       return bTime - aTime;
@@ -168,6 +80,26 @@ export const getConversations = async (integrationId?: string) => {
   } catch (error: any) {
     console.error("getConversations Error:", error.message || error);
     return [];
+  }
+};
+
+export const deleteConversation = async (conversationId: string) => {
+  const userId = await getAuthUserId();
+  if (!userId) throw new Error("Unauthorized");
+
+  try {
+    await prisma.message.deleteMany({
+      where: { conversationId },
+    });
+    await prisma.conversation.delete({
+      where: { id: conversationId, userId },
+    });
+
+    revalidatePath("/inbox");
+    return { success: true };
+  } catch (error: any) {
+    console.error("deleteConversation Error:", error.message);
+    return { success: false, error: error.message };
   }
 };
 
