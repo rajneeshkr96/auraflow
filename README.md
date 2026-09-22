@@ -151,10 +151,19 @@ npx tsc --noEmit
 
 ---
 
-## 🧠 Neural AI Hub & Pay-Per-Use Credit Economy
-- **Autonomous Lead Generation**: Automations can leverage AI agents powered by CodeSwayam's central Neural Hub (`http://localhost:3005`).
-- **Two-Way Agent Synchronization**: When creating or updating an automation in Auraflow, `AutomationService` automatically creates or updates the corresponding Neural Agent with customized business prompts.
-- **Credit Balance Checks & Deductions**: Before calling AI LLMs, `canAffordFeature(userId, "ai_generation")` verifies the user's wallet. Upon completion, `deductCredits()` settles the transaction asynchronously in Core-API PostgreSQL.
+## 🧠 Neural AI Hub & Multi-Tier Credit Economy
+- **Deterministic Subscription-First Gating**:
+  - **Tier 1 (Subscription)**: If the user has an active plan covering AI (`aiIncluded: true`), LLM generation executes with zero credit point deduction.
+  - **Tier 2 (Wallet Deduction)**: If not covered by subscription, credits are deducted atomically in Core-API PostgreSQL.
+  - **Tier 3 (Exhaustion & Fallback)**: If credits run out mid-chat:
+    - The customer chatting on Instagram receives the configured **static fallback reply** (`dmReply` or `commentReply`), ensuring zero dropped conversations.
+    - The automation owner receives an immediate **`AI_CREDITS_EXHAUSTED`** multi-channel alert (in-app, email with recharge link, and push).
+- **Fail-Fast Creation & Activation Guard**:
+  - `AutomationService.updateAutomation` verifies upfront whether the user has an active AI subscription or at least 5 credit points before activating a `SMART_AI` automation. Users without sufficient funds are guided directly to `/billing`.
+- **Two-Way Agent Synchronization**:
+  - When creating or updating an automation in Auraflow, `PlatformNeuralService` automatically binds the entity (`auraflow`, `entityId`) in Core-API NeuralHub with custom business persona prompts.
+- **Zero Double-Deduction**:
+  - All credit deduction is handled authoritatively by Core-API's `DeductCreditsCommand`, eliminating redundant client-side deductions.
 
 ---
 

@@ -62,7 +62,7 @@ export default function AutomationsClient({ automations: initial }: { automation
         const result = await toggleAutomation(id, !currentActive);
         if (!result.success) {
             setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: currentActive } : a));
-            toast.error('Failed to update automation');
+            toast.error(result.error || 'Failed to update automation');
         } else {
             toast.success(!currentActive ? 'Automation activated' : 'Automation paused');
         }

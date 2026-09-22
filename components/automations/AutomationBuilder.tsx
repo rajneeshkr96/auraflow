@@ -142,8 +142,19 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
 
         const result = await updateAutomation(automationId, { active, triggerTypes, keywords, listenerType, reply, dmReply, prompt, posts });
         setSaving(false);
-        if (result.success) toast.success('Automation saved!');
-        else toast.error(result.error || 'Failed to save');
+        if (result.success) {
+            toast.success('Automation saved!');
+        } else if ((result as any).needsUpgrade) {
+            toast.error(result.error, {
+                duration: 6000,
+                action: {
+                    label: 'Billing',
+                    onClick: () => router.push('/billing'),
+                },
+            });
+        } else {
+            toast.error(result.error || 'Failed to save');
+        }
     };
 
     const handleDelete = async () => {

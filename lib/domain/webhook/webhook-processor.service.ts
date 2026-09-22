@@ -166,13 +166,6 @@ export class WebhookProcessorService {
         trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
       }
     } else if (listener.listener === "SMART_AI") {
-      // Check credit / tier entitlement
-      const canProceed = await canAffordFeature(integration.userId, "ai_reply", 5);
-      if (!canProceed) {
-        console.warn("[WebhookProcessor] Insufficient credits for AI reply:", integration.userId);
-        return;
-      }
-
       // Build persona-tailored prompt (Sales Closer, Customer Support, Influencer Companion)
       const { buildPersonaPrompt } = await import("@/lib/platform/neural");
       const systemPrompt = buildPersonaPrompt(
@@ -183,12 +176,24 @@ export class WebhookProcessorService {
 
       const sessionId = `auraflow-dm-${conversation.id}`;
       const entityId = listener.neuralAgentId || listener.id;
-      const aiReply = await PlatformNeuralService.chat(entityId, messageText, sessionId, {
-        systemPrompt,
-        knowledgeBaseId: (listener as any).neuralKbId ?? undefined,
-        userId: integration.userId,
-        name: matched.name,
-      });
+      const fallbackReply =
+        listener.dmReply ||
+        "Thanks for reaching out! We've received your message and our team will get back to you shortly.";
+
+      const chatResult = await PlatformNeuralService.chatWithDetails(
+        entityId,
+        messageText,
+        sessionId,
+        {
+          systemPrompt,
+          knowledgeBaseId: (listener as any).neuralKbId ?? undefined,
+          userId: integration.userId,
+          name: matched.name,
+          fallbackReply,
+        }
+      );
+
+      const aiReply = chatResult.text;
 
       const sent = await InstagramService.sendDm({
         token: integration.token,
@@ -206,9 +211,10 @@ export class WebhookProcessorService {
           senderType: "bot",
         });
 
-        deductCredits(integration.userId, "ai_reply", "Auraflow AI DM Reply").catch(() => null);
         trackPlatformUsage("dms", 1, integration.userId, "async").catch(() => null);
-        trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+        if (!chatResult.fallbackUsed) {
+          trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+        }
       }
     } else if (listener.listener === "PRODUCT_CHECKOUT") {
       // Future-ready social commerce checkout strategy
@@ -277,7 +283,9 @@ export class WebhookProcessorService {
       );
 
       const entityId = listener.neuralAgentId || listener.id;
-      replyText = await PlatformNeuralService.chat(
+      const fallbackReply = listener.commentReply || "Thanks for your comment!";
+
+      const chatResult = await PlatformNeuralService.chatWithDetails(
         entityId,
         commentText,
         `auraflow-comment-${commentId}`,
@@ -285,11 +293,15 @@ export class WebhookProcessorService {
           systemPrompt,
           userId: integration.userId,
           name: matched.name,
+          fallbackReply,
         }
       );
 
-      deductCredits(integration.userId, "ai_reply", "Auraflow AI Comment Reply").catch(() => null);
-      trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+      replyText = chatResult.text;
+
+      if (!chatResult.fallbackUsed) {
+        trackPlatformUsage("ai_responses", 1, integration.userId, "async").catch(() => null);
+      }
     }
 
     // 4. Send comment reply

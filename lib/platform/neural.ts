@@ -58,6 +58,13 @@ export interface ChatOptions {
   userId?: number;
   name?: string;
   model?: string;
+  fallbackReply?: string;
+}
+
+export interface PlatformChatResult {
+  text: string;
+  fallbackUsed: boolean;
+  reason?: string;
 }
 
 /**
@@ -76,6 +83,23 @@ export class PlatformNeuralService {
     sessionId: string,
     options?: ChatOptions,
   ): Promise<string> {
+    const res = await this.chatWithDetails(entityId, message, sessionId, options);
+    return res.text;
+  }
+
+  /**
+   * Universal Entity Chat with execution details (indicates if credit exhaustion fallback was used).
+   */
+  static async chatWithDetails(
+    entityId: string,
+    message: string,
+    sessionId: string,
+    options?: ChatOptions,
+  ): Promise<PlatformChatResult> {
+    const fallbackText =
+      options?.fallbackReply ||
+      "Thanks for reaching out! We've received your message and our team will get back to you shortly.";
+
     try {
       const client = getNeuralClient();
       const result = await client.chat({
@@ -88,12 +112,21 @@ export class PlatformNeuralService {
         userId: options?.userId,
         name: options?.name,
         model: options?.model,
+        fallbackReply: options?.fallbackReply,
       });
 
-      return result.text || "I'm here to help!";
+      return {
+        text: result.text || fallbackText,
+        fallbackUsed: !!result.fallbackUsed,
+        reason: result.reason,
+      };
     } catch (error: any) {
       console.error("[PlatformNeural] Chat error:", error.message || error);
-      return "Thanks for reaching out! We'll get back to you shortly.";
+      return {
+        text: fallbackText,
+        fallbackUsed: true,
+        reason: error?.message || "ERROR",
+      };
     }
   }
 

@@ -1,5 +1,5 @@
 import { AutomationRepository, CreateAutomationDto, UpdateAutomationDto } from "./automation.repository";
-import { checkQuota } from "@/lib/platform/entitlements";
+import { checkQuota, getPlatformEntitlements } from "@/lib/platform/entitlements";
 import { trackPlatformUsage } from "@/lib/platform/metering";
 import { PlatformNeuralService } from "@/lib/platform/neural";
 
@@ -59,6 +59,27 @@ export class AutomationService {
       const universalDm = await AutomationRepository.findUniversalDm(userId, id);
       if (universalDm) {
         return { success: false, error: "Only one Universal DM automation is allowed at a time." };
+      }
+    }
+
+    // Entitlement & Credit Guard for SMART_AI:
+    // If user is activating or updating to SMART_AI, verify they have an AI subscription or credit points
+    const isActivatingSmartAi =
+      (dto.listenerType === "SMART_AI" || (!dto.listenerType && existing.listener?.listener === "SMART_AI")) &&
+      dto.active !== false;
+
+    if (isActivatingSmartAi) {
+      const entitlements = await getPlatformEntitlements();
+      const hasAiSubscription = !!entitlements.tier?.aiIncluded || entitlements.features?.canUseSmartAi === true;
+      const hasCredits = (entitlements.credits?.balance ?? 0) >= 5;
+
+      if (!hasAiSubscription && !hasCredits) {
+        return {
+          success: false,
+          error:
+            "Cannot enable AI Agent: You do not have an active AI subscription or credit points. Please recharge your wallet or upgrade your plan to use SMART_AI.",
+          needsUpgrade: true,
+        };
       }
     }
 
