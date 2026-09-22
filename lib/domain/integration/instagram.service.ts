@@ -18,45 +18,52 @@ export class InstagramService {
   static async sendDm(params: SendDmParams): Promise<boolean> {
     if (!params.token || !params.recipientId || !params.text.trim()) return false;
 
-    // Detect if pageId is a real Facebook Page ID vs an Instagram ID
-    const isFacebookPage = params.pageId && !params.pageId.startsWith("1784") && !params.pageId.startsWith("2953");
-    const primaryUrl = isFacebookPage
-      ? `https://graph.facebook.com/v21.0/${params.pageId}/messages`
-      : `https://graph.instagram.com/v21.0/me/messages`;
-
+    const igId = params.instagramId || params.pageId;
     const payload = {
       recipient: { id: params.recipientId },
       message: { text: params.text },
     };
 
-    try {
-      console.log(`[InstagramService] Sending DM to ${params.recipientId} via ${primaryUrl}`);
-      await axios.post(primaryUrl, payload, {
-        params: { access_token: params.token },
-        timeout: 10000,
-      });
-      console.log(`[InstagramService] DM sent successfully to ${params.recipientId}`);
-      return true;
-    } catch (error: any) {
-      console.error("[InstagramService] sendDm primary error:", error.response?.data || error.message);
+    // Candidate endpoints to support both Instagram Business Login and Facebook Page Login tokens
+    const candidateUrls: string[] = [];
 
-      // Fallback: If Facebook Page endpoint was attempted and failed, retry via /me/messages
-      if (primaryUrl !== "https://graph.instagram.com/v21.0/me/messages") {
-        try {
-          console.log(`[InstagramService] Retrying DM via https://graph.instagram.com/v21.0/me/messages`);
-          await axios.post("https://graph.instagram.com/v21.0/me/messages", payload, {
-            params: { access_token: params.token },
-            timeout: 10000,
-          });
-          console.log(`[InstagramService] DM sent successfully via fallback`);
-          return true;
-        } catch (fallbackError: any) {
-          console.error("[InstagramService] sendDm fallback error:", fallbackError.response?.data || fallbackError.message);
-        }
-      }
-
-      return false;
+    // 1. Instagram Business Login ID-based endpoint
+    if (igId) {
+      candidateUrls.push(`https://graph.instagram.com/v21.0/${igId}/messages`);
     }
+    // 2. Instagram Business Login /me/messages
+    candidateUrls.push("https://graph.instagram.com/v21.0/me/messages");
+    // 3. Facebook Graph API ID-based endpoint
+    if (igId) {
+      candidateUrls.push(`https://graph.facebook.com/v21.0/${igId}/messages`);
+    }
+    // 4. Facebook Graph API /me/messages
+    candidateUrls.push("https://graph.facebook.com/v21.0/me/messages");
+
+    for (const url of candidateUrls) {
+      try {
+        console.log(`[InstagramService] Attempting to send DM to ${params.recipientId} via ${url}`);
+        const res = await axios.post(url, payload, {
+          headers: {
+            Authorization: `Bearer ${params.token}`,
+            "Content-Type": "application/json",
+          },
+          params: { access_token: params.token },
+          timeout: 8000,
+        });
+
+        console.log(`[InstagramService] DM sent successfully via ${url}:`, res.data);
+        return true;
+      } catch (error: any) {
+        console.warn(
+          `[InstagramService] sendDm failed via ${url}:`,
+          error.response?.data?.error?.message || error.response?.data || error.message
+        );
+      }
+    }
+
+    console.error(`[InstagramService] All DM send attempts failed for recipient ${params.recipientId}`);
+    return false;
   }
 
   /**
