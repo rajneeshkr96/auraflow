@@ -110,7 +110,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (model !== undefined) {
-      const isPlatform = model === "gemini-1.5-flash" || model === "gemini-2.0-flash";
+      const isPlatform = model === "gemini-1.5-flash" || model === "gemini-2.0-flash" || model === "gemini-2.5-flash";
       let isApproved = false;
       if (!isPlatform) {
         const request = await (prisma as any).agentModelRequest.findFirst({
