@@ -30,16 +30,20 @@ export async function POST(req: Request) {
   let body: any;
   try {
     body = await req.json();
-  } catch {
+  } catch (err: any) {
+    console.error("[InstagramWebhook] JSON parse error:", err.message);
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
-  if (body.object !== "instagram") {
+  console.log("[InstagramWebhook] Incoming payload:", JSON.stringify(body));
+
+  // Meta sends 'instagram' for Instagram Graph API or 'page' for Messenger-routed accounts
+  if (body.object !== "instagram" && body.object !== "page") {
+    console.log(`[InstagramWebhook] Ignoring non-Instagram object: "${body?.object}"`);
     return NextResponse.json({ received: true }, { status: 200 });
   }
 
   try {
-    console.log("[InstagramWebhook] Incoming payload:", JSON.stringify(body));
     await WebhookProcessorService.processPayload(body);
     return NextResponse.json({ status: "ok" }, { status: 200 });
   } catch (error: any) {

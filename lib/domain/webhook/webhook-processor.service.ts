@@ -13,7 +13,7 @@ export class WebhookProcessorService {
    * Main entry point for processing incoming Instagram webhook payloads
    */
   static async processPayload(body: any): Promise<void> {
-    if (body.object !== "instagram" || !Array.isArray(body.entry)) return;
+    if ((body.object !== "instagram" && body.object !== "page") || !Array.isArray(body.entry)) return;
 
     for (const entry of body.entry) {
       const accountId = entry.id;
@@ -59,7 +59,19 @@ export class WebhookProcessorService {
     const mid: string = event.message?.mid;
     const isEcho: boolean = !!event.message?.is_echo;
 
-    if (!senderId || !messageText) return;
+    if (!senderId) return;
+
+    if (!messageText) {
+      console.log("[WebhookProcessor] Inbound DM has no text (attachment, reaction, or receipt):", {
+        senderId,
+        recipientId,
+        mid,
+        isEcho,
+      });
+      return;
+    }
+
+    console.log(`[WebhookProcessor] Inbound DM received: "${messageText}" from ${senderId} to account ${instagramAccountId}`);
 
     // 1. Dual-ID Integration lookup: check entry.id, then recipient.id
     let integration = await IntegrationRepository.findByAccountOrPageId(instagramAccountId);
@@ -94,6 +106,11 @@ export class WebhookProcessorService {
     });
 
     if (dedup.isDuplicate) {
+      console.log(`[WebhookProcessor] Dropped DM (dedup): reason=${dedup.reason}`, {
+        senderId,
+        mid,
+        text: messageText,
+      });
       return;
     }
 
@@ -115,11 +132,16 @@ export class WebhookProcessorService {
         userId: integration.userId,
         messageText,
         activeCount: automations.length,
+        automations: automations.map((a: any) => ({
+          name: a.name,
+          keywords: a.keywords?.map((k: any) => k.word),
+        })),
       });
       return;
     }
 
     const { listener } = matched;
+    console.log(`[WebhookProcessor] Matched automation "${matched.name}" (listener: ${listener.listener}) for message: "${messageText}"`);
 
     // 6. Execute Listener Strategy (Polymorphic Action Dispatcher)
     if (listener.listener === "MESSAGE") {
@@ -133,6 +155,7 @@ export class WebhookProcessorService {
       });
 
       if (sent) {
+        console.log(`[WebhookProcessor] Successfully sent DM reply to ${senderId}: "${reply}"`);
         await ConversationRepository.logMessage({
           conversationId: conversation.id,
           role: "ASSISTANT",
