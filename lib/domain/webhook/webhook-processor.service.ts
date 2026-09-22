@@ -53,11 +53,11 @@ export class WebhookProcessorService {
    * Handles an incoming DM event with resilient dual-ID lookup and strategy execution
    */
   private static async handleDm(instagramAccountId: string, event: any): Promise<void> {
-    const senderId: string = event.sender?.id;
-    const recipientId: string = event.recipient?.id;
-    const messageText: string = event.message?.text;
-    const mid: string = event.message?.mid;
-    const isEcho: boolean = !!event.message?.is_echo;
+    const senderId: string = event.sender?.id || event.from?.id;
+    const recipientId: string = event.recipient?.id || event.to?.id;
+    const messageText: string = event.message?.text || (typeof event.message === "string" ? event.message : event.text);
+    const mid: string = event.message?.mid || event.id;
+    const isEcho: boolean = !!event.message?.is_echo || !!event.is_echo;
 
     if (!senderId) return;
 
