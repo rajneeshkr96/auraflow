@@ -18,7 +18,7 @@
     "@codeswayam/analytics": "^0.1.3",
     "@codeswayam/api-client": "^1.3.2",
     "@codeswayam/auth": "^2.6.0",
-    "@codeswayam/neural": "^1.0.4",
+    "@codeswayam/neural": "^1.0.5",
     "@codeswayam/ui": "^1.3.0",
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-alert-dialog": "^1.1.15",
