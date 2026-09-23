@@ -62,22 +62,25 @@ export class AutomationService {
       }
     }
 
-    // Entitlement & Credit Guard for SMART_AI:
-    // If user is activating or updating to SMART_AI, verify they have an AI subscription or credit points
-    const isActivatingSmartAi =
-      (dto.listenerType === "SMART_AI" || (!dto.listenerType && existing.listener?.listener === "SMART_AI")) &&
-      dto.active !== false;
+    // Entitlement & Credit Guard for SMART_AI (Hard Subscription Gate):
+    // Any automation configured with SMART_AI (active or draft) requires an AI subscription, Pro tier, or credit balance.
+    const usesSmartAi =
+      dto.listenerType === "SMART_AI" || (!dto.listenerType && existing.listener?.listener === "SMART_AI");
 
-    if (isActivatingSmartAi) {
+    if (usesSmartAi) {
       const entitlements = await getPlatformEntitlements();
-      const hasAiSubscription = !!entitlements.tier?.aiIncluded || entitlements.features?.canUseSmartAi === true;
+      const hasAiSubscription =
+        !!entitlements.tier?.aiIncluded ||
+        entitlements.tier?.name === "pro" ||
+        entitlements.tier?.name === "enterprise" ||
+        entitlements.features?.canUseSmartAi === true;
       const hasCredits = (entitlements.credits?.balance ?? 0) >= 5;
 
       if (!hasAiSubscription && !hasCredits) {
         return {
           success: false,
           error:
-            "Cannot enable AI Agent: You do not have an active AI subscription or credit points. Please recharge your wallet or upgrade your plan to use SMART_AI.",
+            "AI Agents require an active AuraFlow Pro subscription or credit balance. Please upgrade your plan to use SMART_AI.",
           needsUpgrade: true,
         };
       }

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
+import { getProfileUrl } from '@/lib/platform/sso';
 
 export default function SettingsPage() {
-    const authUrl = process.env.NEXT_PUBLIC_APP_AUTH_URL || 'http://localhost:3003';
-    redirect(`${authUrl}/profile`);
+    redirect(getProfileUrl());
 }

@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { updateUserProfile } from '@/actions/user';
+import { useCSWNotifications } from '@codeswayam/auth';
 
 type UserProfile = {
     id?: number;
@@ -29,6 +30,13 @@ export default function SettingsClient({ user }: { user?: UserProfile | null }) 
         inAppAlerts: true,
         marketingEmails: false,
     });
+
+    const {
+        isSubscribed: isPushSubscribed,
+        isLoading: isPushLoading,
+        subscribe: subscribePush,
+        unsubscribe: unsubscribePush,
+    } = useCSWNotifications({ saasId: 'auraflow' });
 
     const plan = user?.subscription?.plan || 'Free';
     const initials = user?.name
@@ -151,6 +159,41 @@ export default function SettingsClient({ user }: { user?: UserProfile | null }) 
                             <CardDescription>Choose what you want to be notified about.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-0">
+                            {/* Browser Push Notifications */}
+                            <div className="flex items-center justify-between py-4">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm font-semibold text-slate-700">Browser Push Notifications</p>
+                                        {isPushSubscribed && (
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                                                Active
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                        Get real-time browser alerts when leads engage, comments are received, or deals close
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={isPushSubscribed}
+                                    disabled={isPushLoading}
+                                    onCheckedChange={async (v) => {
+                                        try {
+                                            if (v) {
+                                                await subscribePush();
+                                                toast.success("Browser push notifications enabled");
+                                            } else {
+                                                await unsubscribePush();
+                                                toast.info("Browser push notifications disabled");
+                                            }
+                                        } catch (err: any) {
+                                            toast.error(err?.message || "Failed to update notification setting");
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Separator />
+
                             {[
                                 { key: 'emailOnTrigger', label: 'Automation Triggered', desc: 'Get an email when your automation fires' },
                                 { key: 'emailWeeklyReport', label: 'Weekly Report', desc: 'Summary of your automations every Monday' },

@@ -4,7 +4,8 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     MessageSquare, Send, Bot, Sparkles, ArrowRight, ArrowLeft,
-    Hash, Image as ImageIcon, CheckCircle2, Loader2, Save, Globe, Zap
+    Hash, Image as ImageIcon, CheckCircle2, Loader2, Save, Globe, Zap,
+    Lock, Crown
 } from 'lucide-react';
 import { Button, Input, Label, Badge } from '@codeswayam/ui';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { updateAutomation } from '@/actions/automations';
 import { toast } from 'sonner';
 import PostSelector from './post-selector';
+import { useAuraflowAccess } from '@/lib/use-auraflow-access';
 
 type AutomationType = 'COMMENT' | 'DM' | null;
 type ActionType = 'MESSAGE' | 'SMART_AI';
@@ -40,6 +42,16 @@ export default function AutomationWizard({
     automationName: string;
 }) {
     const router = useRouter();
+    const access = useAuraflowAccess();
+    const isProOrHasCredits = access.isLoaded && (
+        access.isSubscribed ||
+        access.aiIncluded ||
+        access.tier === 'pro' ||
+        access.tier === 'enterprise' ||
+        access.canUseSmartAi ||
+        (access.creditBalance >= access.aiCallCost && access.creditBalance > 0)
+    );
+
     const [step, setStep] = useState(0);
     const [saving, setSaving] = useState(false);
     const [form, setForm] = useState<WizardState>({
@@ -63,7 +75,10 @@ export default function AutomationWizard({
         if (step === 1) return true; // keywords optional
         if (step === 2) {
             if (form.actionType === 'MESSAGE') return form.replyText.trim().length > 0;
-            if (form.actionType === 'SMART_AI') return form.aiPrompt.trim().length > 0;
+            if (form.actionType === 'SMART_AI') {
+                if (!isProOrHasCredits) return false;
+                return form.aiPrompt.trim().length > 0;
+            }
         }
         return true;
     };
@@ -96,7 +111,7 @@ export default function AutomationWizard({
     return (
         <div className="max-w-2xl mx-auto">
             {/* Progress indicator */}
-            <div className="flex items-center gap-0 mb-8">
+            <div className="flex items-center gap-0 mb-5">
                 {STEPS.map((s, i) => (
                     <div key={s} className="flex items-center flex-1">
                         <div className="flex flex-col items-center gap-1">
@@ -117,14 +132,14 @@ export default function AutomationWizard({
             </div>
 
             {/* Step Content */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm min-h-105 flex flex-col">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col">
                 {step === 0 && <StepType form={form} update={update} />}
                 {step === 1 && <StepTrigger form={form} update={update} />}
-                {step === 2 && <StepAction form={form} update={update} />}
+                {step === 2 && <StepAction form={form} update={update} isProOrHasCredits={isProOrHasCredits} router={router} />}
                 {step === 3 && <StepReview form={form} automationName={automationName} />}
 
                 {/* Navigation */}
-                <div className="flex items-center justify-between mt-auto pt-8 border-t border-slate-100">
+                <div className="flex items-center justify-between mt-6 pt-5 border-t border-slate-100">
                     <Button variant="outline" onClick={back} disabled={step === 0} className="flex items-center gap-2">
                         <ArrowLeft className="w-4 h-4" /> Back
                     </Button>
@@ -170,16 +185,16 @@ function StepType({ form, update }: { form: WizardState; update: (k: keyof Wizar
 
     return (
         <div className="flex-1">
-            <div className="mb-6">
-                <h2 className="text-xl font-bold text-slate-900">Choose Automation Type</h2>
-                <p className="text-slate-500 text-sm mt-1">What kind of Instagram interaction do you want to automate?</p>
+            <div className="mb-4">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900">Choose Automation Type</h2>
+                <p className="text-slate-500 text-xs sm:text-sm mt-0.5">What kind of Instagram interaction do you want to automate?</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {types.map((type) => (
                     <button
                         key={type.id}
                         onClick={() => update('automationType', type.id)}
-                        className={`relative text-left p-5 rounded-xl border-2 transition-all group ${
+                        className={`relative text-left p-4 sm:p-5 rounded-xl border-2 transition-all group ${
                             form.automationType === type.id
                                 ? 'border-violet-600 bg-violet-50'
                                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
@@ -190,7 +205,7 @@ function StepType({ form, update }: { form: WizardState; update: (k: keyof Wizar
                                 <CheckCircle2 className="w-5 h-5 text-violet-600" />
                             </div>
                         )}
-                        <div className={`w-12 h-12 rounded-xl bg-linear-to-br ${type.gradient} flex items-center justify-center mb-4 text-xl`}>
+                        <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${type.gradient} flex items-center justify-center mb-3 text-lg`}>
                             {type.emoji}
                         </div>
                         <h3 className="font-bold text-slate-900 mb-1.5">{type.title}</h3>
@@ -267,7 +282,17 @@ function StepTrigger({ form, update }: { form: WizardState; update: (k: keyof Wi
     );
 }
 
-function StepAction({ form, update }: { form: WizardState; update: (k: keyof WizardState, v: any) => void }) {
+function StepAction({
+    form,
+    update,
+    isProOrHasCredits,
+    router,
+}: {
+    form: WizardState;
+    update: (k: keyof WizardState, v: any) => void;
+    isProOrHasCredits: boolean;
+    router: any;
+}) {
     return (
         <div className="flex-1 space-y-5">
             <div>
@@ -279,20 +304,54 @@ function StepAction({ form, update }: { form: WizardState; update: (k: keyof Wiz
             <div className="grid grid-cols-2 gap-3">
                 {[
                     { id: 'MESSAGE' as ActionType, title: 'Static Reply', desc: 'Always send the same message', icon: '📝', gradient: 'from-blue-500 to-cyan-500' },
-                    { id: 'SMART_AI' as ActionType, title: 'AI Agent', desc: 'Smart contexual AI replies', icon: '🤖', gradient: 'from-violet-500 to-purple-500' },
-                ].map(t => (
-                    <button
-                        key={t.id}
-                        onClick={() => update('actionType', t.id)}
-                        className={`text-left p-4 rounded-xl border-2 transition-all ${
-                            form.actionType === t.id ? 'border-violet-600 bg-violet-50' : 'border-slate-200 hover:border-slate-300'
-                        }`}
-                    >
-                        <div className="text-xl mb-2">{t.icon}</div>
-                        <p className="font-bold text-sm text-slate-800">{t.title}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">{t.desc}</p>
-                    </button>
-                ))}
+                    { id: 'SMART_AI' as ActionType, title: 'AI Agent', desc: 'Smart contextual AI replies', icon: '🤖', gradient: 'from-violet-500 to-purple-500' },
+                ].map(t => {
+                    const isSmartAi = t.id === 'SMART_AI';
+                    const isLocked = isSmartAi && !isProOrHasCredits;
+
+                    return (
+                        <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => {
+                                if (isLocked) {
+                                    toast.error('AI Agents are exclusive to AuraFlow Pro. Upgrade to unlock autonomous DM and comment replies.', {
+                                        duration: 6000,
+                                        action: {
+                                            label: 'Upgrade to Pro',
+                                            onClick: () => router.push('/billing')
+                                        }
+                                    });
+                                    return;
+                                }
+                                update('actionType', t.id);
+                            }}
+                            className={`text-left p-4 rounded-xl border-2 transition-all relative ${
+                                form.actionType === t.id
+                                    ? 'border-violet-600 bg-violet-50'
+                                    : isLocked
+                                    ? 'border-slate-200 bg-slate-50/70 hover:border-slate-300'
+                                    : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="text-xl">{t.icon}</div>
+                                {isSmartAi && (
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                        isLocked
+                                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                            : 'bg-violet-100 text-violet-700'
+                                    }`}>
+                                        {isLocked ? <Lock className="w-2.5 h-2.5 text-amber-600" /> : <Crown className="w-2.5 h-2.5 text-violet-600" />}
+                                        {isLocked ? 'PRO ONLY' : 'PRO'}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="font-bold text-sm text-slate-800">{t.title}</p>
+                            <p className="text-[11px] text-slate-400 mt-0.5">{t.desc}</p>
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Static reply fields */}

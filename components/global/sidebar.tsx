@@ -12,6 +12,7 @@ import { useCSWSubscriptions } from "@codeswayam/auth";
 import { useAuraflowAccess } from "@/lib/use-auraflow-access";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { getProfileUrl } from "@/lib/platform/sso";
 
 type User = {
   id?: number;
@@ -182,7 +183,7 @@ export default function Sidebar({ user }: { user?: User | null }) {
 
         <div className="pt-4 border-t border-border">
           <a
-            href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+            href={getProfileUrl()}
             className="flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-secondary transition-all group"
           >
             <div className="w-10 h-10 rounded-2xl bg-secondary border border-border flex items-center justify-center text-xs font-bold text-primary shrink-0 overflow-hidden">

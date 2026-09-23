@@ -1,8 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import Link from "next/link";
+import NotificationButton from "./notification-button";
+import { getProfileUrl } from "@/lib/platform/sso";
 
 type User = {
   name?: string | null;
@@ -51,18 +53,16 @@ export default function Infobar({ user }: { user?: User | null }) {
         </div>
 
         {/* Notifications */}
-        <button className="relative w-11 h-11 rounded-2xl bg-secondary border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/20 transition-all group">
-          <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span className="absolute top-3 right-3 w-2 h-2 bg-primary rounded-full border-2 border-background" />
-        </button>
+        <NotificationButton size="default" />
 
-        {/* Avatar Mobile */}
-        <Link
-          href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+        {/* Avatar Profile */}
+        <a
+          href={getProfileUrl()}
           className="w-11 h-11 rounded-2xl bg-primary flex items-center justify-center text-white font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+          title="Profile & Account Settings"
         >
           {initials}
-        </Link>
+        </a>
       </div>
     </header>
   );

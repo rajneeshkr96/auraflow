@@ -152,16 +152,19 @@ npx tsc --noEmit
 ---
 
 ## 🧠 Neural AI Hub & Multi-Tier Credit Economy
-- **Deterministic Subscription-First Gating**:
-  - **Tier 1 (Subscription)**: If the user has an active plan covering AI (`aiIncluded: true`), LLM generation executes with zero credit point deduction.
+- **Deterministic Subscription-First Gating (Hard Subscription Gate)**:
+  - **Tier 1 (Pro / Enterprise Subscription)**: If the user has an active plan covering AI (`aiIncluded: true` or tier is `pro`/`enterprise`), LLM generation executes with zero credit point deduction.
   - **Tier 2 (Wallet Deduction)**: If not covered by subscription, credits are deducted atomically in Core-API PostgreSQL.
   - **Tier 3 (Exhaustion & Fallback)**: If credits run out mid-chat:
     - The customer chatting on Instagram receives the configured **static fallback reply** (`dmReply` or `commentReply`), ensuring zero dropped conversations.
     - The automation owner receives an immediate **`AI_CREDITS_EXHAUSTED`** multi-channel alert (in-app, email with recharge link, and push).
-- **Fail-Fast Creation & Activation Guard**:
-  - `AutomationService.updateAutomation` verifies upfront whether the user has an active AI subscription or at least 5 credit points before activating a `SMART_AI` automation. Users without sufficient funds are guided directly to `/billing`.
-- **Two-Way Agent Synchronization**:
+- **Strict UI & Backend Creation Guard (Method 1 Hard Gate)**:
+  - **Automation Setup Wizard (`AutomationWizard.tsx`)**: The **🤖 Smart AI Agent** card is locked with a `PRO ONLY` badge for Free tier users with zero credits. Attempting selection triggers an upgrade toast guiding the user to `/subscription`.
+  - **Flow Canvas Builder (`AutomationBuilder.tsx`)**: The Action node response engine selector displays a `PRO` lock badge and prevents switching to `SMART_AI` for unentitled users.
+  - **Automation Service (`AutomationService.updateAutomation`)**: Verifies upfront whether the user has an active Pro subscription or credit points before saving or provisioning a `SMART_AI` automation (enforced on both active flows and drafts). Users without sufficient entitlement receive a `needsUpgrade: true` response.
+- **Two-Way Agent Synchronization & Managed BYOK Security**:
   - When creating or updating an automation in Auraflow, `PlatformNeuralService` automatically binds the entity (`auraflow`, `entityId`) in Core-API NeuralHub with custom business persona prompts.
+  - Managed agents are secured on the backend (`agents.controller.ts`): non-admin users cannot bind unapproved custom BYOK models to Auraflow-managed agents.
 - **Zero Double-Deduction**:
   - All credit deduction is handled authoritatively by Core-API's `DeductCreditsCommand`, eliminating redundant client-side deductions.
 

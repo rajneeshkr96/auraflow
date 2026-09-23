@@ -11,6 +11,8 @@ import { useCSWSubscriptions } from "@codeswayam/auth";
 import { useAuraflowAccess } from "@/lib/use-auraflow-access";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import NotificationButton from "./notification-button";
+import { getProfileUrl } from "@/lib/platform/sso";
 
 type User = {
   id?: number;
@@ -119,16 +121,13 @@ export default function MobileShell({ user }: { user?: User | null }) {
 
         {/* Right: Bell + Avatar */}
         <div className="flex items-center gap-2">
-          <button className="relative w-10 h-10 rounded-xl bg-secondary border border-border flex items-center justify-center text-muted-foreground">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full border border-background" />
-          </button>
-          <Link
-            href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+          <NotificationButton size="sm" />
+          <a
+            href={getProfileUrl()}
             className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-xs shadow-lg shadow-primary/20"
           >
             {initials}
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -249,8 +248,8 @@ export default function MobileShell({ user }: { user?: User | null }) {
                 )}
 
                 <div className="border-t border-border pt-3">
-                  <Link
-                    href={`${process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"}/profile`}
+                  <a
+                    href={getProfileUrl()}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary transition-all"
                   >
                     <div className="w-9 h-9 rounded-xl bg-secondary border border-border flex items-center justify-center text-xs font-bold text-primary shrink-0">
@@ -261,7 +260,7 @@ export default function MobileShell({ user }: { user?: User | null }) {
                       <p className="text-xs text-muted-foreground">{plan} Plan</p>
                     </div>
                     <Settings className="w-4 h-4 text-muted-foreground" />
-                  </Link>
+                  </a>
                 </div>
               </div>
             </motion.aside>

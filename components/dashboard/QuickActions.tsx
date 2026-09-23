@@ -3,6 +3,7 @@
 import { Plus, BarChart3, Settings, Instagram } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { getProfileUrl } from '@/lib/platform/sso';
 
 interface ActionCardProps {
     title: string;
@@ -67,7 +68,7 @@ export default function QuickActions() {
             title: 'Settings',
             description: 'Manage your account and preferences',
             icon: <Settings className="w-6 h-6 text-white" />,
-            href: `${authUrl}/profile`,
+            href: getProfileUrl(),
             color: 'bg-slate-900',
             external: true,
         },

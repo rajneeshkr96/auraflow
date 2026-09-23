@@ -10,7 +10,7 @@ import { Button, Input, Label, Badge } from '@codeswayam/ui';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Save, Loader2, Trash2, Zap, MessageSquare, Bot, Send, Pencil, Sparkles, Crown, Settings2, Layers } from 'lucide-react';
+import { Save, Loader2, Trash2, Zap, MessageSquare, Bot, Send, Pencil, Sparkles, Crown, Lock, Settings2, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { updateAutomation, deleteAutomation } from '@/actions/automations';
@@ -351,37 +351,66 @@ export default function AutomationBuilder({ initialData, automationId }: Props) 
                                             <span className="text-[10px] font-bold uppercase tracking-widest truncate w-full">Static</span>
                                         </button>
 
-                                        <button
-                                            onClick={() => {
-                                                if (!access.isLoaded) return;
-                                                if (!access.canAffordAiCall) {
-                                                    toast.error(
-                                                        access.aiIncluded
-                                                            ? 'AI is included in your plan but something went wrong.'
-                                                            : `You need at least ${access.aiCallCost} points to use AI Agent.`,
-                                                        { duration: 5000 }
-                                                    );
-                                                    return;
-                                                }
-                                                updateNodeData('listenerType', 'SMART_AI');
-                                            }}
-                                            className={cn(
-                                                "flex flex-col items-center gap-2 p-5 rounded-[24px] border transition-all relative shrink-0 min-w-0",
-                                                selectedNode.data.listenerType === 'SMART_AI'
-                                                    ? "bg-foreground text-background border-foreground"
-                                                    : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground",
-                                                !access.canAffordAiCall && "opacity-60 cursor-not-allowed"
-                                            )}
-                                        >
-                                            <Bot className="w-4 h-4" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest truncate w-full">AI Agent</span>
-                                            {access.isLoaded && (
-                                                <span className="absolute -top-1 -right-1 bg-primary text-white text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                                    {access.aiIncluded ? <Crown className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
-                                                    {access.aiIncluded ? 'Free' : access.aiCallCost}
-                                                </span>
-                                            )}
-                                        </button>
+                                        {(() => {
+                                            const isProOrHasCredits = access.isLoaded && (
+                                                access.isSubscribed ||
+                                                access.aiIncluded ||
+                                                access.tier === 'pro' ||
+                                                access.tier === 'enterprise' ||
+                                                access.canUseSmartAi ||
+                                                (access.creditBalance >= access.aiCallCost && access.creditBalance > 0)
+                                            );
+
+                                            return (
+                                                <button
+                                                    onClick={() => {
+                                                        if (!access.isLoaded) return;
+                                                        if (!isProOrHasCredits) {
+                                                            toast.error(
+                                                                'AI Agents are exclusive to AuraFlow Pro. Upgrade to unlock autonomous AI replies.',
+                                                                {
+                                                                    duration: 6000,
+                                                                    action: {
+                                                                        label: 'Upgrade to Pro',
+                                                                        onClick: () => router.push('/subscription'),
+                                                                    },
+                                                                }
+                                                            );
+                                                            return;
+                                                        }
+                                                        updateNodeData('listenerType', 'SMART_AI');
+                                                    }}
+                                                    className={cn(
+                                                        "flex flex-col items-center gap-2 p-5 rounded-[24px] border transition-all relative shrink-0 min-w-0",
+                                                        selectedNode.data.listenerType === 'SMART_AI'
+                                                            ? "bg-foreground text-background border-foreground"
+                                                            : "bg-secondary border-border text-muted-foreground hover:border-muted-foreground",
+                                                        !isProOrHasCredits && "opacity-75"
+                                                    )}
+                                                >
+                                                    <Bot className="w-4 h-4" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest truncate w-full">AI Agent</span>
+                                                    {access.isLoaded && (
+                                                        <span className={cn(
+                                                            "absolute -top-1 -right-1 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5",
+                                                            isProOrHasCredits ? "bg-primary" : "bg-amber-600"
+                                                        )}>
+                                                            {isProOrHasCredits ? (
+                                                                <>
+                                                                    {access.aiIncluded ? <Crown className="w-2 h-2" /> : <Sparkles className="w-2 h-2" />}
+                                                                    {access.aiIncluded ? 'Free' : access.aiCallCost}
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Lock className="w-2 h-2" />
+                                                                    PRO
+                                                                </>
+                                                            )}
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Points / upgrade notice */}

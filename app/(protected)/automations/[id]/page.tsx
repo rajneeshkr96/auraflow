@@ -38,15 +38,15 @@ const Page = async ({ params }: Props) => {
   const isAI = automation.listener?.listener === 'SMART_AI';
 
   return (
-    <div className="flex flex-col gap-6 h-full overflow-hidden">
+    <div className={`flex flex-col gap-4 sm:gap-6 ${isNew ? 'min-h-full' : 'h-full overflow-hidden'}`}>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-border shrink-0">
-        <div className="flex items-start gap-6">
-          <Link href="/automations" className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary transition-all hover:scale-105 active:scale-95 shrink-0">
-            <ArrowLeft className="w-6 h-6" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 sm:pb-6 border-b border-border shrink-0">
+        <div className="flex items-start gap-4 sm:gap-6">
+          <Link href="/automations" className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-secondary flex items-center justify-center text-muted-foreground hover:text-primary transition-all hover:scale-105 active:scale-95 shrink-0">
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </Link>
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-1.5 sm:mb-2">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Flow Editor</span>
               {automation.active && (
                 <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full border border-emerald-100 font-bold uppercase tracking-widest text-[8px]">
@@ -55,7 +55,7 @@ const Page = async ({ params }: Props) => {
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                <EditableName automationId={id} initialName={automation.name || 'Untitled Automation'} />
                <div className="flex items-center gap-2">
                   {hasDm && <span className="text-[10px] font-bold uppercase tracking-widest bg-primary/10 text-primary px-3 py-1 rounded-full">DM</span>}
@@ -72,15 +72,15 @@ const Page = async ({ params }: Props) => {
       </div>
 
       {/* Content: Wizard for new, Builder for existing */}
-      <div className="flex-1 min-h-0">
+      <div className={`flex-1 ${isNew ? 'overflow-y-auto pr-1' : 'min-h-0'}`}>
         {isNew ? (
-          <div className="max-w-4xl mx-auto py-10">
-            <div className="mb-16 text-center">
-               <div className="w-20 h-20 bg-primary/10 rounded-[32px] flex items-center justify-center mx-auto mb-8 text-primary">
-                  <Zap className="w-10 h-10" />
+          <div className="max-w-3xl mx-auto py-2 sm:py-4 pb-12">
+            <div className="mb-5 sm:mb-6 text-center">
+               <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-3 text-primary shadow-xs">
+                  <Zap className="w-6 h-6" />
                </div>
-              <h2 className="text-5xl font-bold tracking-tighter text-foreground mb-4">Let's build your flow.</h2>
-              <p className="text-xl text-muted-foreground font-medium">Follow the simple steps below to activate your automation.</p>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground mb-1">Let's build your flow.</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">Follow the simple steps below to activate your automation.</p>
             </div>
             <AutomationWizard automationId={id} automationName={automation.name || 'Untitled Automation'} />
           </div>

@@ -14,6 +14,7 @@ const authBase = process.env.NEXT_PUBLIC_APP_AUTH_URL || "http://localhost:3003"
 const ssoUrl = authBase.endsWith("/sso") ? authBase : `${authBase.replace(/\/$/, "")}/sso`;
 
 export default withCSWAuth({
+    appName: "AuraFlow",
     ssoUrl,
     callbackPath: "/auth/callback",
     publicPaths: [

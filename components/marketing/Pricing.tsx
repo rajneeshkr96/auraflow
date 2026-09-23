@@ -113,32 +113,49 @@ const Pricing: React.FC = () => {
 
     const handleSubscribeClick = (plan: PricingPlan) => {
         const param = plan.type === 'bundle' ? 'bundleId' : 'saasProductId';
-        const subscribeUrl = `${AUTH_URL}/profile/subscription?${param}=${plan.id}&billingCycle=${billingCycle}&currency=${currency}`;
+        const returnTarget = typeof window !== 'undefined' ? `${window.location.origin}/dashboard` : 'http://localhost:3006/dashboard';
+        const subscribeUrl = `${AUTH_URL}/profile/subscription?${param}=${plan.id}&billingCycle=${billingCycle}&currency=${currency}&app=auraflow&returnUrl=${encodeURIComponent(returnTarget)}`;
         window.open(subscribeUrl, '_blank');
     };
 
+    const getPlanPrice = (plan: PricingPlan) => {
+        if (plan.isFreeTier || plan.planTier === 'free') return 0;
+        const curPricing = plan.pricing?.[currency];
+        if (!curPricing) {
+            const inr = plan.pricing?.INR;
+            if (inr) return billingCycle === 'yearly' ? inr.yearly : inr.monthly;
+            const usd = plan.pricing?.USD;
+            if (usd) return billingCycle === 'yearly' ? usd.yearly : usd.monthly;
+            return 999999;
+        }
+        const amount = billingCycle === 'yearly' ? curPricing.yearly : curPricing.monthly;
+        return amount ?? 999999;
+    };
+
+    const sortedPlans = [...plans].sort((a, b) => getPlanPrice(a) - getPlanPrice(b));
+
     return (
-        <section id="pricing" className="py-32 px-6 bg-background">
-            <div className="max-w-7xl mx-auto">
+        <section id="pricing" className="py-24 sm:py-32 px-4 sm:px-6 bg-background">
+            <div className="max-w-7xl mx-auto flex flex-col items-center">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-left mb-20"
+                    className="text-center mb-16 sm:mb-20 flex flex-col items-center"
                 >
                     <h2 className="text-5xl md:text-7xl font-bold tracking-tighter leading-none mb-6">
                         Simple pricing. <br />
                         <span className="text-muted-foreground">Built for creators.</span>
                     </h2>
                     
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8 mt-12">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 mt-8 sm:mt-12">
                         {/* Currency Selector */}
-                        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary p-1 shadow-sm">
+                        <div className="flex items-center gap-1 rounded-full border border-border bg-secondary p-1 shadow-xs">
                             {(['INR', 'USD'] as Currency[]).map(c => (
                                 <button
                                     key={c}
                                     onClick={() => setCurrency(c)}
-                                    className={`flex items-center gap-1.5 text-xs font-bold px-6 py-2.5 rounded-full transition-all duration-200 ${currency === c ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}
+                                    className={`flex items-center gap-1.5 text-xs font-bold px-6 py-2.5 rounded-full transition-all duration-200 cursor-pointer ${currency === c ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-muted-foreground hover:text-foreground'}`}
                                 >
                                     {c === 'INR' ? '₹ INR' : '$ USD'}
                                 </button>
@@ -150,7 +167,7 @@ const Pricing: React.FC = () => {
                             <span className={`text-sm font-bold ${billingCycle === 'monthly' ? 'text-foreground' : 'text-muted-foreground'}`}>Monthly</span>
                             <button
                                 onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-                                className={`w-14 h-7 rounded-full relative p-1 transition-all duration-300 ${billingCycle === 'yearly' ? 'bg-primary' : 'bg-secondary border border-border'}`}
+                                className={`w-14 h-7 rounded-full relative p-1 transition-all duration-300 cursor-pointer ${billingCycle === 'yearly' ? 'bg-primary' : 'bg-secondary border border-border'}`}
                             >
                                 <div className={`w-5 h-5 rounded-full shadow-md transition-all duration-300 ${billingCycle === 'yearly' ? 'translate-x-7 bg-white' : 'translate-x-0 bg-primary'}`} />
                             </button>
@@ -169,8 +186,8 @@ const Pricing: React.FC = () => {
                         <Loader2 size={32} className="animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        {plans.map((plan, i) => {
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-center justify-center w-full max-w-7xl">
+                        {sortedPlans.map((plan, i) => {
                             const pricingData = plan.pricing?.[currency];
                             const rawPrice = billingCycle === 'yearly' ? (pricingData?.yearly ?? 0) : (pricingData?.monthly ?? 0);
                             const displayPrice = billingCycle === 'yearly' && rawPrice > 0
@@ -186,17 +203,29 @@ const Pricing: React.FC = () => {
                                     whileInView={{ opacity: 1, y: 0 }}
                                     viewport={{ once: true }}
                                     transition={{ delay: i * 0.1 }}
-                                    className={`relative rounded-[48px] p-10 flex flex-col justify-between transition-all duration-500 border ${isPopular
-                                        ? 'bg-foreground text-background border-transparent shadow-2xl'
-                                        : 'bg-white border-border'
+                                    className={`relative rounded-[40px] sm:rounded-[48px] p-8 sm:p-10 flex flex-col justify-between transition-all duration-500 border ${isPopular
+                                        ? 'bg-foreground text-background border-primary/30 shadow-2xl lg:scale-105 z-10'
+                                        : 'bg-white border-border shadow-xs'
                                         }`}
                                 >
                                     <div>
                                         <div className="flex items-center justify-between mb-8">
-                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${isPopular ? 'bg-white/10' : 'bg-secondary border border-border'}`}>
-                                                {plan.type === 'bundle' ? <Package className="w-7 h-7 text-primary" /> : <Zap className="w-7 h-7 text-primary" />}
+                                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all ${
+                                                isPopular
+                                                    ? 'bg-primary text-white shadow-lg shadow-primary/30 border border-primary/50'
+                                                    : 'bg-secondary border border-border text-primary'
+                                            }`}>
+                                                {plan.type === 'bundle' ? (
+                                                    <Package className={`w-7 h-7 ${isPopular ? 'text-white' : 'text-primary'}`} />
+                                                ) : (
+                                                    <Zap className={`w-7 h-7 ${isPopular ? 'text-white fill-white/20' : 'text-primary'}`} />
+                                                )}
                                             </div>
-                                            {isPopular && <span className="text-[10px] font-bold text-background bg-white px-4 py-1.5 rounded-full uppercase tracking-widest">Most Popular</span>}
+                                            {isPopular && (
+                                                <span className="text-[10px] font-black text-slate-950 bg-white px-4 py-1.5 rounded-full uppercase tracking-widest shadow-md">
+                                                    Most Popular
+                                                </span>
+                                            )}
                                         </div>
 
                                         <h3 className="text-3xl font-bold tracking-tighter mb-2">{plan.name}</h3>
@@ -227,9 +256,9 @@ const Pricing: React.FC = () => {
 
                                     <button
                                         onClick={() => handleSubscribeClick(plan)}
-                                        className={`group w-full h-16 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-2 ${isPopular
-                                            ? 'bg-white text-foreground hover:scale-105 active:scale-95'
-                                            : 'bg-primary text-white hover:scale-105 active:scale-95'
+                                        className={`group w-full h-16 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${isPopular
+                                            ? 'bg-white text-foreground hover:scale-105 active:scale-95 shadow-lg'
+                                            : 'bg-primary text-white hover:scale-105 active:scale-95 shadow-lg shadow-primary/20'
                                             }`}
                                     >
                                         {isFree ? 'Get Started' : 'Subscribe Now'}
