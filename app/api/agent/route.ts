@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getAuthUserId } from "@/lib/auth";
+import { getRawAuthToken } from "@/lib/platform/auth";
+import { sdk } from "@codeswayam/api-client";
 import { getNeuralClient, PlatformNeuralService } from "@/lib/platform/neural";
 
 const MAX_DAILY_TESTS = 5;
@@ -164,19 +166,42 @@ export async function POST(req: NextRequest) {
   if (isNaN(numericId))
     return NextResponse.json({ error: "Invalid agentId" }, { status: 400 });
 
-  // ── Server-side rate limit: 5 test messages per user per agent per day ──
+  // ── Server-side rate limit check ──
+  // Enterprise / Pro plan users are exempt from the 5-message test cap
+  const token = await getRawAuthToken();
+  let isPremiumTier = false;
+  if (token) {
+    try {
+      const fullProfile = await sdk.getFullProfile({
+        headers: { Authorization: `Bearer ${token}`, Cookie: `Authentication=${token}` },
+      });
+      isPremiumTier = !!fullProfile?.subscriptions?.some(
+        (s: any) =>
+          s.status === "active" &&
+          (s.planTier === "enterprise" ||
+            s.planTier === "pro" ||
+            s.productSaasId?.includes("enterprise") ||
+            s.productSaasId?.includes("pro") ||
+            s.features?.includes("ai_agents"))
+      );
+    } catch {
+      // Non-fatal fallback
+    }
+  }
+
+  const effectiveLimit = isPremiumTier ? 500 : MAX_DAILY_TESTS;
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   try {
     const usage = await (prisma as any).dailyTestUsage.findUnique({
       where: { userId_agentId_date: { userId, agentId, date: today } },
     });
 
-    if (usage && usage.count >= MAX_DAILY_TESTS) {
+    if (usage && usage.count >= effectiveLimit) {
       return NextResponse.json(
         {
-          error: `Daily test limit reached (${MAX_DAILY_TESTS}/day). Come back tomorrow or use the full NeuralHub playground.`,
+          error: `Daily test limit reached (${effectiveLimit}/day). Come back tomorrow or use the full NeuralHub playground.`,
           limitReached: true,
-          limit: MAX_DAILY_TESTS,
+          limit: effectiveLimit,
         },
         { status: 429 }
       );

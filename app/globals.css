@@ -145,3 +145,25 @@
 [data-radix-dropdown-menu-content],
 [data-radix-select-content],
 [data-radix-popover-content] { z-index: 50 !important; }
+
+/* ── ReactFlow Canvas Cursor Visibility (Fix for Chrome GPU/Hardware Acceleration bug) ── */
+.react-flow,
+.react-flow__pane {
+  cursor: default !important;
+}
+.react-flow__pane.dragging,
+.react-flow__pane:active {
+  cursor: grabbing !important;
+}
+.react-flow__node {
+  cursor: pointer !important;
+}
+.react-flow__node-dragging {
+  cursor: grabbing !important;
+}
+.react-flow__edge {
+  cursor: pointer !important;
+}
+.react-flow__handle {
+  cursor: crosshair !important;
+}

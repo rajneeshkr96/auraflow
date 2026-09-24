@@ -43,12 +43,22 @@ export interface PlatformUsageCounter {
   percentage: number;
 }
 
+export interface PlatformCrossAppGrant {
+  id: number;
+  sourceFamily: string;
+  sourceAppId: string;
+  sourcePlanType: string;
+  featureCategory: string;
+  grantedAt: string;
+}
+
 export interface PlatformEntitlements {
   userId: number;
   appId: string;
   role: string;
   tier: PlatformTier;
   subscription: PlatformSubscription | null;
+  crossAppGrants?: PlatformCrossAppGrant[];
   credits: {
     balance: number;
     featureCosts: Record<string, number>;
@@ -59,7 +69,9 @@ export interface PlatformEntitlements {
 
 export interface FeatureAccessCheck {
   allowed: boolean;
-  reason: "TIER_TOO_LOW" | "FEATURE_DISABLED" | "INSUFFICIENT_CREDITS" | null;
+  reason: "TIER_TOO_LOW" | "FEATURE_DISABLED" | "INSUFFICIENT_CREDITS" | "USAGE_LIMIT_REACHED" | null;
+  method?: "subscription" | "cross_app_grant" | "credit_deduct" | "denied";
+  grantedBy?: string;
   creditCost?: number;
   creditBalance?: number;
 }

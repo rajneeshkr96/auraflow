@@ -7,6 +7,7 @@ import {
   Lock, Database, Shield,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuraflowAccess } from "@/lib/use-auraflow-access";
 
 const NEURAL_WEB_URL = process.env.NEXT_PUBLIC_NEURAL_WEB_URL || "http://localhost:3008";
 const MAX_TEST_MESSAGES = 5;
@@ -47,6 +48,9 @@ interface Props {
 }
 
 export default function AgentPanel({ listenerId, automationId, initialPrompt, onPromptChange }: Props) {
+  const auraflowAccess = useAuraflowAccess();
+  const isPremium = auraflowAccess.tier === "enterprise" || auraflowAccess.tier === "pro" || auraflowAccess.isSubscribed;
+
   const [agent, setAgent] = useState<AgentInfo | null>(null);
   const [prompt, setPrompt] = useState(initialPrompt || "");
   const [loading, setLoading] = useState(true);
@@ -66,7 +70,7 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt, on
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const msgCount = messages.filter((m) => m.role === "user").length;
-  const testExhausted = msgCount >= MAX_TEST_MESSAGES || serverLimitReached;
+  const testExhausted = !isPremium && (msgCount >= MAX_TEST_MESSAGES || serverLimitReached);
 
   useEffect(() => {
     fetch(`/api/agent?listenerId=${listenerId}`)
@@ -200,7 +204,7 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt, on
               className="flex items-center gap-1 h-8 px-3 rounded-full bg-primary hover:bg-primary/90 text-white text-[10px] font-bold transition-all shrink-0"
             >
               <MessageSquare className="w-3 h-3" />
-              <span>{serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount}</span>
+              <span>{isPremium ? "Test Chat" : (serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount)}</span>
             </button>
           </div>
         )}
@@ -332,9 +336,11 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt, on
               <Bot className="w-4 h-4 text-primary" />
               <span className="text-xs font-bold">Test Chat</span>
               <span className="text-[10px] text-muted-foreground">
-                · {serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount} messages remaining today
+                {isPremium
+                  ? `· Unlimited (${auraflowAccess.planLabel})`
+                  : `· ${serverLimitReached ? "0" : MAX_TEST_MESSAGES - msgCount} messages remaining today`}
               </span>
-              {serverLimitReached && (
+              {serverLimitReached && !isPremium && (
                 <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 uppercase">
                   Limit Reached
                 </span>
@@ -360,7 +366,11 @@ export default function AgentPanel({ listenerId, automationId, initialPrompt, on
               <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
                 <Bot className="w-8 h-8 opacity-20" />
                 <p className="text-xs font-bold">Send a test message to preview your AI agent</p>
-                <p className="text-[10px] text-muted-foreground">Max {MAX_TEST_MESSAGES} messages per day (server-enforced)</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {isPremium
+                    ? `Unlimited test preview included with your ${auraflowAccess.planLabel}`
+                    : `Max ${MAX_TEST_MESSAGES} messages per day (server-enforced)`}
+                </p>
               </div>
             )}
             {messages.map((m, i) => (
